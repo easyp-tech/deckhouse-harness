@@ -1,0 +1,130 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: d8-system
+---
+# NodeGroup fixtures
+apiVersion: deckhouse.io/v1
+kind: NodeGroup
+metadata:
+  name: master
+spec:
+  nodeType: CloudEphemeral
+  cloudInstances:
+    minPerZone: 1
+    maxPerZone: 1
+status:
+  ready: 1
+  nodes: 1
+  upToDate: 1
+  conditionSummary:
+    ready: "True"
+---
+apiVersion: deckhouse.io/v1
+kind: NodeGroup
+metadata:
+  name: worker
+spec:
+  nodeType: Static
+status:
+  ready: 0
+  nodes: 0
+---
+# ModuleConfig fixtures (at least 5 for the test assertion)
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: deckhouse
+spec:
+  enabled: true
+  version: 1
+  settings:
+    releaseChannel: EarlyAccess
+    bundle: Minimal
+status:
+  message: ""
+  version: "1"
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: global
+spec:
+  enabled: true
+  version: 1
+  settings:
+    modules:
+      publicDomainTemplate: "%s.example.com"
+status:
+  message: ""
+  version: "1"
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: prometheus
+spec:
+  enabled: true
+  version: 2
+status:
+  message: ""
+  version: "2"
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: ingress-nginx
+spec:
+  enabled: true
+  version: 1
+status:
+  message: ""
+  version: "1"
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: cert-manager
+spec:
+  enabled: true
+  version: 1
+status:
+  message: ""
+  version: "1"
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: node-manager
+spec:
+  enabled: false
+  version: 1
+status:
+  message: ""
+  version: "1"
+---
+# DeckhouseRelease fixtures
+apiVersion: deckhouse.io/v1alpha1
+kind: DeckhouseRelease
+metadata:
+  name: v1.70.0
+spec:
+  version: "v1.70.0"
+  applyAfter: "2024-01-01T00:00:00Z"
+status:
+  phase: Deployed
+  approved: true
+  message: ""
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: DeckhouseRelease
+metadata:
+  name: v1.71.0
+spec:
+  version: "v1.71.0"
+  applyAfter: "2024-06-01T00:00:00Z"
+status:
+  phase: Pending
+  approved: false
+  message: "Waiting for approval"

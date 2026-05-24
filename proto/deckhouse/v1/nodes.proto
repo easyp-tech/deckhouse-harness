@@ -1,0 +1,548 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1;deckhousev1";
+
+import "mcp/options/v1/options.proto";
+
+service NodesAPI {
+  option (mcp.options.v1.service) = {
+    namespace: "deckhouse"
+    description: "Node management: add nodes, create SSH credentials and static instances."
+  };
+
+  // AddWorkerNode is a composite handler that adds a worker node to the cluster.
+  rpc AddWorkerNode(AddWorkerNodeRequest) returns (AddWorkerNodeResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Add worker node"
+      description: "Composite operation that adds a bare-metal server as a Deckhouse worker node. Steps: (1) create SSHCredentials with the provided key, (2) create StaticInstance bound to that credential and the target NodeGroup. If wait_ready is true (default), polls every 30s until the StaticInstance reaches Running phase or the timeout expires — returns last observed phase and timed_out flag. If step 1 fails, step 2 is not attempted. If step 2 fails, the SSHCredentials resource from step 1 still exists."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // CreateSSHCredentials creates an SSHCredentials resource.
+  rpc CreateSSHCredentials(CreateSSHCredentialsRequest) returns (CreateSSHCredentialsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Create SSH credentials"
+      description: "Create an SSHCredentials resource in the d8-system namespace. The private key must be in PEM format (RSA, ED25519, or ECDSA); it is base64-encoded internally before storing in the Kubernetes Secret. The sudo_password field is optional and only needed when the remote user requires a password for sudo."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // CreateStaticInstance creates a StaticInstance resource.
+  rpc CreateStaticInstance(CreateStaticInstanceRequest) returns (CreateStaticInstanceResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Create static instance"
+      description: "Create a StaticInstance resource bound to SSHCredentials via credentialsRef."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // DeleteStaticInstance deletes a StaticInstance resource.
+  rpc DeleteStaticInstance(DeleteStaticInstanceRequest) returns (DeleteStaticInstanceResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Delete static instance"
+      description: "Delete a StaticInstance resource by name. Deckhouse will gracefully clean up the node."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // RemoveNode drains and removes a static node from the cluster.
+  rpc RemoveNode(RemoveNodeRequest) returns (RemoveNodeResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Remove node"
+      description: "Composite: cordon the node, evict all non-DaemonSet pods, then delete the associated StaticInstance. Returns error if no StaticInstance is found for the node (static nodes only)."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // CreateNodeGroup creates a new NodeGroup resource.
+  rpc CreateNodeGroup(CreateNodeGroupRequest) returns (CreateNodeGroupResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Create node group"
+      description: "Create a new NodeGroup resource. In Deckhouse CE only 'Static' nodeType is supported."
+      annotations: { read_only_hint: false }
+    };
+  }
+
+  // WaitNodeReady polls until a StaticInstance reaches Running phase or timeout.
+  rpc WaitNodeReady(WaitNodeReadyRequest) returns (WaitNodeReadyResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Wait node ready"
+      description: "Poll StaticInstance.status.currentStatus.phase until it reaches 'Running' or timeout. Returns the final phase, elapsed time, and whether timeout occurred."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // CordonNode marks a node as unschedulable (spec.unschedulable=true).
+  rpc CordonNode(CordonNodeRequest) returns (CordonNodeResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Cordon node"
+      description: "Mark a node as unschedulable by setting spec.unschedulable=true. New pods will not be scheduled onto it. Returns the previous unschedulable state. Idempotent — safe to call on an already-cordoned node."
+      annotations: { read_only_hint: false, idempotent_hint: true }
+    };
+  }
+
+  // UncordonNode marks a node as schedulable (spec.unschedulable=false).
+  rpc UncordonNode(UncordonNodeRequest) returns (UncordonNodeResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Uncordon node"
+      description: "Mark a node as schedulable by setting spec.unschedulable=false. Returns the previous unschedulable state. Idempotent — safe to call on a non-cordoned node."
+      annotations: { read_only_hint: false, idempotent_hint: true }
+    };
+  }
+
+  // DrainNode evicts non-DaemonSet pods from a node and optionally cordons it first.
+  rpc DrainNode(DrainNodeRequest) returns (DrainNodeResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Drain node"
+      description: "Composite operation: (1) cordon the node, (2) iteratively evict every non-DaemonSet, non-mirror pod via the Kubernetes Eviction API (policy/v1), respecting PodDisruptionBudgets. Polls every 30s until all evictable pods are gone or the timeout expires. DaemonSet-managed pods and mirror pods are skipped. Returns the number of pods evicted, any pods that failed eviction, and timed_out flag. The node remains cordoned after the call."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // DeleteSSHCredentials deletes an SSHCredentials resource.
+  rpc DeleteSSHCredentials(DeleteSSHCredentialsRequest) returns (DeleteSSHCredentialsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Delete SSH credentials"
+      description: "Delete an SSHCredentials resource by name. Any StaticInstance still referencing it via credentialsRef will become unable to authenticate to its server."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // DeleteNodeGroup deletes a NodeGroup resource.
+  rpc DeleteNodeGroup(DeleteNodeGroupRequest) returns (DeleteNodeGroupResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Delete node group"
+      description: "Delete a NodeGroup resource by name. StaticInstance resources belonging to the group will no longer be managed; nodes that have already joined the cluster keep their kubelet running but lose their NodeGroup affiliation."
+      annotations: { destructive_hint: true }
+    };
+  }
+
+  // CreateNodeGroupConfiguration creates a NodeGroupConfiguration script binding.
+  rpc CreateNodeGroupConfiguration(CreateNodeGroupConfigurationRequest) returns (CreateNodeGroupConfigurationResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Create node group configuration"
+      description: "Create a NodeGroupConfiguration resource — a bash script that bootstrap-runs on every node in the targeted NodeGroups. Use this for kubelet tuning, custom kernel modules, label/taint application, or any cluster-wide host configuration that cannot be expressed via NodeGroup spec. Already-exists error is returned when a resource with the same name exists."
+      annotations: { read_only_hint: false, idempotent_hint: false }
+    };
+  }
+}
+
+// AddWorkerNodeRequest contains parameters for the composite add-node operation.
+message AddWorkerNodeRequest {
+  string address = 1 [(mcp.options.v1.field) = {
+    description: "IP address of the server to add."
+    format: "ipv4"
+    examples: [{ string_value: "192.168.1.100" }]
+  }];
+  string ssh_user = 2 [(mcp.options.v1.field) = {
+    description: "SSH username for connecting to the server."
+    examples: [{ string_value: "ubuntu" }, { string_value: "root" }]
+  }];
+  string private_key = 3 [(mcp.options.v1.field) = {
+    description: "Private SSH key in PEM format (RSA, ED25519, or ECDSA). Must NOT be base64-encoded — encoding is done internally."
+    examples: [{ string_value: "-----BEGIN OPENSSH PRIVATE KEY-----\n..." }]
+  }];
+  string node_group = 4 [(mcp.options.v1.field) = {
+    description: "Name of the target NodeGroup. Must be an existing NodeGroup with nodeType: Static."
+    examples: [{ string_value: "worker" }]
+  }];
+  optional string node_name = 5 [(mcp.options.v1.field) = {
+    description: "Name for the node. If omitted, generated from IP address (dots replaced with dashes, e.g. 192-168-1-100)."
+    examples: [{ string_value: "worker-1" }]
+  }];
+  optional int32 ssh_port = 6 [(mcp.options.v1.field) = {
+    description: "SSH port. Default: 22."
+    default_value: { number_value: 22 }
+    minimum: 1
+    maximum: 65535
+  }];
+  optional bool wait_ready = 7 [(mcp.options.v1.field) = {
+    description: "Wait for the StaticInstance to reach Running phase. Default: true. When false, returns immediately after creating resources."
+    default_value: { bool_value: true }
+  }];
+  optional int32 timeout_seconds = 8 [(mcp.options.v1.field) = {
+    description: "Timeout in seconds for waiting. Default: 900 (15 minutes). Ignored when wait_ready is false."
+    default_value: { number_value: 900 }
+    minimum: 1
+    maximum: 3600
+  }];
+}
+
+message AddWorkerNodeResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the composite AddWorkerNode operation."
+  };
+
+  string node_name = 1 [(mcp.options.v1.field) = { description: "Name assigned to the node." }];
+  string ssh_credentials_name = 2 [(mcp.options.v1.field) = { description: "Name of the created SSHCredentials resource." }];
+  string static_instance_name = 3 [(mcp.options.v1.field) = { description: "Name of the created StaticInstance resource." }];
+  string phase = 4 [(mcp.options.v1.field) = {
+    description: "Final observed phase of the StaticInstance: Pending, Bootstrapping, Running, or Error."
+    examples: [{ string_value: "Running" }, { string_value: "Pending" }]
+  }];
+  string elapsed = 5 [(mcp.options.v1.field) = {
+    description: "Wall-clock time spent waiting (e.g. 45s, 2m30s). Empty if waitReady was false."
+    examples: [{ string_value: "45s" }, { string_value: "2m30s" }]
+  }];
+  bool timed_out = 6 [(mcp.options.v1.field) = {
+    description: "True if the operation timed out before the StaticInstance reached Running phase."
+  }];
+}
+
+// CreateSSHCredentialsRequest contains parameters for SSHCredentials creation.
+message CreateSSHCredentialsRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the SSHCredentials resource."
+    examples: [{ string_value: "worker-1-ssh" }]
+  }];
+  string user = 2 [(mcp.options.v1.field) = {
+    description: "SSH username for connecting to the server."
+    examples: [{ string_value: "ubuntu" }, { string_value: "root" }]
+  }];
+  string private_key = 3 [(mcp.options.v1.field) = {
+    description: "Private SSH key in PEM format (RSA, ED25519, or ECDSA). Base64 encoding is done internally."
+    examples: [{ string_value: "-----BEGIN OPENSSH PRIVATE KEY-----\n..." }]
+  }];
+  optional int32 port = 4 [(mcp.options.v1.field) = {
+    description: "SSH port. Default: 22."
+    default_value: { number_value: 22 }
+    minimum: 1
+    maximum: 65535
+  }];
+  optional string ssh_extra_args = 5 [(mcp.options.v1.field) = {
+    description: "Additional SSH client arguments (e.g. -o StrictHostKeyChecking=no)."
+    examples: [{ string_value: "-o StrictHostKeyChecking=no" }]
+  }];
+  optional string sudo_password = 6 [(mcp.options.v1.field) = {
+    description: "Sudo password. Only required when the remote SSH user needs a password for sudo privilege escalation."
+  }];
+}
+
+message CreateSSHCredentialsResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of SSHCredentials creation."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "Name of the created SSHCredentials resource." }];
+}
+
+// CreateStaticInstanceRequest contains parameters for StaticInstance creation.
+message CreateStaticInstanceRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the StaticInstance."
+    examples: [{ string_value: "worker-1" }]
+  }];
+  string address = 2 [(mcp.options.v1.field) = {
+    description: "IP address of the server."
+    format: "ipv4"
+    examples: [{ string_value: "192.168.1.100" }]
+  }];
+  string credentials_ref = 3 [(mcp.options.v1.field) = {
+    description: "Name of the SSHCredentials resource to reference. Must exist in d8-system namespace."
+    examples: [{ string_value: "worker-1-ssh" }]
+  }];
+  map<string, string> labels = 4 [(mcp.options.v1.field) = {
+    description: "Labels for binding to NodeGroup via labelSelector. Must match the NodeGroup's nodeSelector."
+  }];
+}
+
+message CreateStaticInstanceResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of StaticInstance creation."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "Name of the created StaticInstance resource." }];
+  string address = 2 [(mcp.options.v1.field) = {
+    description: "IP address of the server."
+    format: "ipv4"
+  }];
+  string credentials_ref = 3 [(mcp.options.v1.field) = { description: "Name of the referenced SSHCredentials resource." }];
+  map<string, string> labels = 4 [(mcp.options.v1.field) = {
+    description: "Labels applied to the StaticInstance for NodeGroup binding."
+  }];
+}
+
+// DeleteStaticInstanceRequest contains the name of the StaticInstance to delete.
+message DeleteStaticInstanceRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the StaticInstance resource to delete."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+}
+
+// DeleteStaticInstanceResponse contains the result of deletion.
+message DeleteStaticInstanceResponse {
+  bool success = 1 [(mcp.options.v1.field) = { description: "Whether the deletion succeeded." }];
+}
+
+// RemoveNodeRequest contains the node name and drain options.
+message RemoveNodeRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the Node (and StaticInstance) to remove."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+  optional bool drain = 2 [(mcp.options.v1.field) = {
+    description: "Cordon and evict pods before deleting the StaticInstance. Default: true."
+    default_value: { bool_value: true }
+  }];
+}
+
+// RemoveNodeResponse contains the result of the remove node operation.
+message RemoveNodeResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the composite RemoveNode operation."
+  };
+
+  bool drained = 1 [(mcp.options.v1.field) = {
+    description: "Whether the node was cordoned and pods were evicted."
+  }];
+  bool deleted = 2 [(mcp.options.v1.field) = {
+    description: "Whether the StaticInstance was deleted."
+  }];
+}
+
+// CreateNodeGroupRequest contains parameters for NodeGroup creation.
+message CreateNodeGroupRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the NodeGroup resource."
+    examples: [{ string_value: "workers" }]
+    min_length: 1
+  }];
+  string node_type = 2 [(mcp.options.v1.field) = {
+    description: "Node type: 'Static' (CE only), 'CloudEphemeral', 'CloudPermanent', or 'CloudStatic'."
+    examples: [{ string_value: "Static" }]
+    min_length: 1
+  }];
+  optional int32 count = 3 [(mcp.options.v1.field) = {
+    description: "Desired number of nodes in the group."
+    minimum: 0
+  }];
+  map<string, string> labels = 4 [(mcp.options.v1.field) = {
+    description: "Labels to apply to Node objects in this group."
+  }];
+  optional string disruptions = 5 [(mcp.options.v1.field) = {
+    description: "Disruption approval mode: 'Automatic' or 'Manual'. Default: Automatic."
+    examples: [{ string_value: "Automatic" }, { string_value: "Manual" }]
+  }];
+  optional int32 max_pods_per_node = 6 [(mcp.options.v1.field) = {
+    description: "Maximum pods per node. Default: 110."
+    default_value: { integer_value: 110 }
+    minimum: 1
+    maximum: 500
+  }];
+}
+
+// CreateNodeGroupResponse contains the result of NodeGroup creation.
+message CreateNodeGroupResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of NodeGroup creation."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "Name of the created NodeGroup." }];
+  string node_type = 2 [(mcp.options.v1.field) = { description: "Node type of the created NodeGroup." }];
+  optional int32 count = 3 [(mcp.options.v1.field) = { description: "Desired node count." minimum: 0 }];
+}
+
+// WaitNodeReadyRequest contains the node/StaticInstance name and polling options.
+message WaitNodeReadyRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the StaticInstance to wait for."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+  optional int32 timeout_seconds = 2 [(mcp.options.v1.field) = {
+    description: "Maximum wait time in seconds. Default: 900."
+    default_value: { integer_value: 900 }
+    minimum: 30
+    maximum: 3600
+  }];
+  optional int32 interval_seconds = 3 [(mcp.options.v1.field) = {
+    description: "Polling interval in seconds. Default: 30."
+    default_value: { integer_value: 30 }
+    minimum: 5
+    maximum: 300
+  }];
+}
+
+// WaitNodeReadyResponse contains the result of polling.
+message WaitNodeReadyResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of polling StaticInstance until Running or timeout."
+  };
+
+  string phase = 1 [(mcp.options.v1.field) = {
+    description: "Final observed phase of the StaticInstance."
+    examples: [{ string_value: "Running" }, { string_value: "Bootstrapping" }]
+  }];
+  string elapsed = 2 [(mcp.options.v1.field) = {
+    description: "Wall-clock time spent polling (e.g. '45s', '2m30s')."
+    examples: [{ string_value: "45s" }, { string_value: "2m30s" }]
+  }];
+  bool timed_out = 3 [(mcp.options.v1.field) = {
+    description: "True if the polling timed out before reaching Running phase."
+  }];
+}
+
+// CordonNodeRequest contains the node name to cordon.
+message CordonNodeRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the Node to cordon."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+}
+
+// CordonNodeResponse contains the result of the cordon operation.
+message CordonNodeResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the cordon node operation."
+  };
+
+  bool previous_state = 1 [(mcp.options.v1.field) = {
+    description: "Previous value of spec.unschedulable before this call. True means the node was already cordoned."
+  }];
+}
+
+// UncordonNodeRequest contains the node name to uncordon.
+message UncordonNodeRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the Node to uncordon."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+}
+
+// UncordonNodeResponse contains the result of the uncordon operation.
+message UncordonNodeResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the uncordon node operation."
+  };
+
+  bool previous_state = 1 [(mcp.options.v1.field) = {
+    description: "Previous value of spec.unschedulable before this call. True means the node was cordoned before this call."
+  }];
+}
+
+// DrainNodeRequest contains the node name and polling options.
+message DrainNodeRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the Node to drain."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+  optional int32 timeout_seconds = 2 [(mcp.options.v1.field) = {
+    description: "Maximum wall-clock time in seconds the drain may take. Default: 300."
+    default_value: { integer_value: 300 }
+    minimum: 30
+    maximum: 3600
+  }];
+}
+
+// DrainNodeResponse contains the outcome of draining a node.
+message DrainNodeResponse {
+  option (mcp.options.v1.message) = {
+    description: "Outcome of the DrainNode operation."
+  };
+
+  bool cordoned = 1 [(mcp.options.v1.field) = {
+    description: "Whether the cordon step succeeded. False means the drain was aborted at step 1."
+  }];
+  int32 evicted_count = 2 [(mcp.options.v1.field) = {
+    description: "Number of pods successfully evicted (or that disappeared during the loop)."
+    minimum: 0
+  }];
+  repeated string failed_pods = 3 [(mcp.options.v1.field) = {
+    description: "Pods that failed eviction with a non-recoverable error. Format: namespace/name."
+    examples: [{ string_value: "default/web-7f8d-abc" }]
+  }];
+  bool timed_out = 4 [(mcp.options.v1.field) = {
+    description: "True if the timeout expired before all evictable pods were removed."
+  }];
+  string elapsed = 5 [(mcp.options.v1.field) = {
+    description: "Wall-clock time spent draining (e.g. '45s', '2m30s')."
+    examples: [{ string_value: "45s" }, { string_value: "2m30s" }]
+  }];
+}
+
+// DeleteSSHCredentialsRequest contains the SSHCredentials name to delete.
+message DeleteSSHCredentialsRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the SSHCredentials resource to delete."
+    examples: [{ string_value: "creds-worker-01" }]
+    min_length: 1
+  }];
+}
+
+// DeleteSSHCredentialsResponse reports the result.
+message DeleteSSHCredentialsResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the DeleteSSHCredentials operation."
+  };
+
+  bool deleted = 1 [(mcp.options.v1.field) = {
+    description: "Whether the resource was deleted."
+  }];
+}
+
+// DeleteNodeGroupRequest contains the NodeGroup name to delete.
+message DeleteNodeGroupRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the NodeGroup resource to delete."
+    examples: [{ string_value: "worker" }, { string_value: "static-workers" }]
+    min_length: 1
+  }];
+}
+
+// DeleteNodeGroupResponse reports the result.
+message DeleteNodeGroupResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the DeleteNodeGroup operation."
+  };
+
+  bool deleted = 1 [(mcp.options.v1.field) = {
+    description: "Whether the resource was deleted."
+  }];
+}
+
+// CreateNodeGroupConfigurationRequest contains parameters for the configuration script.
+message CreateNodeGroupConfigurationRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Resource name. Becomes metadata.name; also serves as the script file name on the node (with extension .sh)."
+    examples: [{ string_value: "kubelet-tuning" }, { string_value: "install-cri-tools" }]
+    min_length: 1
+  }];
+  string content = 2 [(mcp.options.v1.field) = {
+    description: "Body of the bash script that will execute on every node in the listed node_groups. Should be idempotent."
+    examples: [{ string_value: "#!/bin/bash\nset -e\necho ok" }]
+    min_length: 1
+  }];
+  repeated string node_groups = 3 [(mcp.options.v1.field) = {
+    description: "List of NodeGroup names the script is bound to. Non-empty; non-existent NodeGroups are silently ignored at runtime."
+    examples: [{ string_value: "[\"worker\", \"master\"]" }]
+  }];
+  optional int32 weight = 4 [(mcp.options.v1.field) = {
+    description: "Execution order weight (lower = earlier). Default: 100. Typical bootstrap scripts use 50-200; cleanup scripts use 900+."
+    default_value: { integer_value: 100 }
+    minimum: 0
+    maximum: 999
+  }];
+}
+
+// CreateNodeGroupConfigurationResponse reports the outcome of the operation.
+message CreateNodeGroupConfigurationResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the CreateNodeGroupConfiguration operation."
+  };
+
+  bool created = 1 [(mcp.options.v1.field) = {
+    description: "Whether the NodeGroupConfiguration was successfully created."
+  }];
+  string name = 2 [(mcp.options.v1.field) = {
+    description: "Name of the created NodeGroupConfiguration (echo of the request)."
+  }];
+}

@@ -1,0 +1,60 @@
+version: "3"
+
+vars:
+  IMAGE_NAME: deckhouse-mcp
+  IMAGE_TAG: local
+  NAMESPACE: d8-system
+
+tasks:
+  generate:
+    desc: Download proto deps and generate code
+    cmds:
+      - easyp mod download
+      - easyp generate
+
+  lint:
+    desc: Lint proto files
+    cmds:
+      - easyp lint
+
+  build:
+    desc: Build Go binary
+    cmds:
+      - go build ./cmd/deckhouse-mcp
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./...
+
+  docker:build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t {{.IMAGE_NAME}}:{{.IMAGE_TAG}} .
+
+  docker:load:
+    desc: Load Docker image into Kind cluster
+    cmds:
+      - kind load docker-image {{.IMAGE_NAME}}:{{.IMAGE_TAG}} --name d8
+
+  integration:setup:
+    desc: Set up integration test environment
+    cmds:
+      - bash tests/integration/setup.sh
+
+  integration:test:
+    desc: Run integration tests
+    cmds:
+      - bash tests/integration/test.sh
+
+  integration:teardown:
+    desc: Tear down integration test environment
+    cmds:
+      - bash tests/integration/teardown.sh
+
+  integration:
+    desc: Run full integration test cycle
+    cmds:
+      - task: integration:setup
+      - task: integration:test
+      - task: integration:teardown

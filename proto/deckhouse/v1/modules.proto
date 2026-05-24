@@ -1,0 +1,272 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1;deckhousev1";
+
+import "google/protobuf/struct.proto";
+import "mcp/options/v1/options.proto";
+
+service ModulesAPI {
+  option (mcp.options.v1.service) = {
+    namespace: "deckhouse"
+    description: "ModuleConfig management: list, enable, disable modules."
+  };
+
+  // ListModuleConfigs returns all ModuleConfig resources.
+  rpc ListModuleConfigs(ListModuleConfigsRequest) returns (ListModuleConfigsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List module configs"
+      description: "List all ModuleConfig resources with optional filtering by enabled status."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetModuleConfig returns full spec and status of a single ModuleConfig.
+  rpc GetModuleConfig(GetModuleConfigRequest) returns (GetModuleConfigResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get module config"
+      description: "Full spec and status of a single ModuleConfig including enabled state, version, settings (as a JSON object), and status conditions."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // EnableModule enables a Deckhouse module by setting spec.enabled=true.
+  rpc EnableModule(EnableModuleRequest) returns (EnableModuleResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Enable module"
+      description: "Enable a Deckhouse module by setting spec.enabled=true in its ModuleConfig. Returns the previous enabled state. Safe to call when already enabled."
+      annotations: { read_only_hint: false, idempotent_hint: true }
+    };
+  }
+
+  // DisableModule disables a Deckhouse module by setting spec.enabled=false.
+  rpc DisableModule(DisableModuleRequest) returns (DisableModuleResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Disable module"
+      description: "Disable a Deckhouse module by setting spec.enabled=false in its ModuleConfig. Returns the previous enabled state. Safe to call when already disabled."
+      annotations: { read_only_hint: false, idempotent_hint: true }
+    };
+  }
+
+  // ListModules returns all Deckhouse Module resources (runtime objects).
+  rpc ListModules(ListModulesRequest) returns (ListModulesResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List modules"
+      description: "List all Deckhouse Module resources. Unlike ModuleConfig (user configuration), Module is a runtime resource describing the current state of a module: weight, source, and lifecycle state (Enabled, Disabled, etc.)."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // UpdateModuleSettings merges new settings into an existing ModuleConfig.spec.settings
+  // using JSON Merge Patch (RFC 7396).
+  rpc UpdateModuleSettings(UpdateModuleSettingsRequest) returns (UpdateModuleSettingsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Update module settings"
+      description: "Deep-merge the provided settings into ModuleConfig.spec.settings using JSON Merge Patch (RFC 7396). Top-level keys absent in the request are preserved; keys with null values are removed; keys with new values are overwritten. Use full GetModuleConfig + a complete settings replacement if you need full overwrite semantics."
+      annotations: { read_only_hint: false, idempotent_hint: false }
+    };
+  }
+
+  // SetModuleMaintenance toggles ModuleConfig.spec.maintenance.
+  rpc SetModuleMaintenance(SetModuleMaintenanceRequest) returns (SetModuleMaintenanceResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Set module maintenance"
+      description: "Pause or resume reconciliation of a Deckhouse module by toggling ModuleConfig.spec.maintenance. When enabled=true, sets spec.maintenance=NoResourceReconciliation — Deckhouse stops applying enable/disable transitions while settings/version updates continue. When enabled=false, removes the field. Idempotent."
+      annotations: { read_only_hint: false, idempotent_hint: true }
+    };
+  }
+}
+
+// ListModuleConfigsRequest contains optional filters.
+message ListModuleConfigsRequest {
+  optional bool enabled = 1 [(mcp.options.v1.field) = {
+    description: "Filter by enabled/disabled status."
+  }];
+}
+
+message ListModuleConfigsResponse {
+  repeated ModuleConfigInfo modules = 1 [(mcp.options.v1.field) = {
+    description: "ModuleConfig resources matching the filter criteria."
+  }];
+}
+
+message ModuleConfigInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse ModuleConfig resource controlling a platform module."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleConfig resource name (same as the module name, e.g. cert-manager, ingress-nginx)."
+    examples: [{ string_value: "cert-manager" }, { string_value: "ingress-nginx" }]
+  }];
+  bool enabled = 2 [(mcp.options.v1.field) = {
+    description: "Whether the module is enabled in the cluster."
+  }];
+  string version = 3 [(mcp.options.v1.field) = {
+    description: "Schema version of the module settings."
+    examples: [{ string_value: "1" }, { string_value: "2" }]
+  }];
+  string source = 4 [(mcp.options.v1.field) = {
+    description: "ModuleSource that provides this module. Empty for built-in Deckhouse modules."
+  }];
+  string update_policy = 5 [(mcp.options.v1.field) = {
+    description: "Name of the ModuleUpdatePolicy applied to this module. Empty if none."
+  }];
+  string status_message = 6 [(mcp.options.v1.field) = {
+    description: "Human-readable status or error message from the ModuleConfig status."
+  }];
+}
+
+// GetModuleConfigRequest contains the module name.
+message GetModuleConfigRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleConfig resource name (same as the module name, e.g. cert-manager)."
+    examples: [{ string_value: "cert-manager" }, { string_value: "ingress-nginx" }]
+    min_length: 1
+  }];
+}
+
+// GetModuleConfigResponse contains full ModuleConfig spec and status.
+message GetModuleConfigResponse {
+  option (mcp.options.v1.message) = {
+    description: "Full spec and status of a Deckhouse ModuleConfig."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "ModuleConfig resource name." }];
+  bool enabled = 2 [(mcp.options.v1.field) = { description: "Whether the module is enabled." }];
+  optional int32 version = 3 [(mcp.options.v1.field) = {
+    description: "Schema version of the module settings."
+    minimum: 1
+  }];
+  map<string, string> settings = 4 [(mcp.options.v1.field) = {
+    description: "Module settings as key-value pairs (from spec.settings)."
+  }];
+  string status_message = 5 [(mcp.options.v1.field) = {
+    description: "Human-readable status or error message from ModuleConfig status."
+  }];
+}
+
+// EnableModuleRequest contains the module name to enable.
+message EnableModuleRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleConfig resource name (same as the module name)."
+    examples: [{ string_value: "cert-manager" }, { string_value: "ingress-nginx" }]
+    min_length: 1
+  }];
+}
+
+// EnableModuleResponse contains the result of enabling a module.
+message EnableModuleResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the enable module operation."
+  };
+
+  bool success = 1 [(mcp.options.v1.field) = { description: "Whether the operation succeeded." }];
+  bool previous_state = 2 [(mcp.options.v1.field) = {
+    description: "Previous value of spec.enabled before this call."
+  }];
+}
+
+// DisableModuleRequest contains the module name to disable.
+message DisableModuleRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleConfig resource name (same as the module name)."
+    examples: [{ string_value: "cert-manager" }, { string_value: "ingress-nginx" }]
+    min_length: 1
+  }];
+}
+
+// DisableModuleResponse contains the result of disabling a module.
+message DisableModuleResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the disable module operation."
+  };
+
+  bool success = 1 [(mcp.options.v1.field) = { description: "Whether the operation succeeded." }];
+  bool previous_state = 2 [(mcp.options.v1.field) = {
+    description: "Previous value of spec.enabled before this call."
+  }];
+}
+
+// ListModulesRequest is empty — no filters yet.
+message ListModulesRequest {}
+
+// ListModulesResponse contains all Module resources.
+message ListModulesResponse {
+  repeated ModuleInfo modules = 1 [(mcp.options.v1.field) = {
+    description: "All Deckhouse Module resources in the cluster."
+  }];
+}
+
+// ModuleInfo describes a single Deckhouse Module runtime resource.
+message ModuleInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse Module resource — runtime view of a module (state, weight, source). Distinct from ModuleConfig which holds user configuration."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Module resource name (same as the module name, e.g. cert-manager, ingress-nginx)."
+    examples: [{ string_value: "cert-manager" }, { string_value: "ingress-nginx" }]
+  }];
+  int32 weight = 2 [(mcp.options.v1.field) = {
+    description: "Module weight from spec.weight controlling load order. 0 if not set."
+    minimum: 0
+  }];
+  string source = 3 [(mcp.options.v1.field) = {
+    description: "ModuleSource that provides this module (from spec.source). Empty for embedded Deckhouse modules."
+  }];
+  string state = 4 [(mcp.options.v1.field) = {
+    description: "Current lifecycle state from status.phase (e.g. Enabled, Disabled, Available)."
+    examples: [{ string_value: "Enabled" }, { string_value: "Disabled" }]
+  }];
+}
+
+// UpdateModuleSettingsRequest carries a partial settings document to merge.
+message UpdateModuleSettingsRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleConfig resource name (same as the module name, e.g. cert-manager)."
+    examples: [{ string_value: "cert-manager" }, { string_value: "ingress-nginx" }]
+    min_length: 1
+  }];
+  google.protobuf.Struct settings = 2 [(mcp.options.v1.field) = {
+    description: "Settings document to merge into ModuleConfig.spec.settings using JSON Merge Patch (RFC 7396). Top-level keys absent in this object are preserved; explicit null values remove the corresponding key; new values overwrite existing ones. Must contain at least one field."
+  }];
+}
+
+// UpdateModuleSettingsResponse reports the result of a settings merge.
+message UpdateModuleSettingsResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the UpdateModuleSettings operation."
+  };
+
+  bool updated = 1 [(mcp.options.v1.field) = {
+    description: "Whether the ModuleConfig was successfully updated. False if the merged settings were byte-identical to the existing ones (no-op)."
+  }];
+}
+
+// SetModuleMaintenanceRequest identifies a module and toggles its maintenance state.
+message SetModuleMaintenanceRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleConfig resource name (same as the module name, e.g. cert-manager)."
+    examples: [{ string_value: "cert-manager" }, { string_value: "ingress-nginx" }]
+    min_length: 1
+  }];
+  bool enabled = 2 [(mcp.options.v1.field) = {
+    description: "When true, set spec.maintenance=NoResourceReconciliation (pauses enable/disable transitions). When false, removes the field."
+  }];
+}
+
+// SetModuleMaintenanceResponse reports the outcome.
+message SetModuleMaintenanceResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the SetModuleMaintenance operation."
+  };
+
+  bool maintenance_enabled = 1 [(mcp.options.v1.field) = {
+    description: "Current state after the call: true means spec.maintenance is set to NoResourceReconciliation."
+  }];
+  string name = 2 [(mcp.options.v1.field) = {
+    description: "Echo of the request name."
+  }];
+}

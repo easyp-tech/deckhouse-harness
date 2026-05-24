@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1;deckhousev1";
+
+import "mcp/options/v1/options.proto";
+
+// ConfigAPI — cluster configuration management.
+service ConfigAPI {
+  option (mcp.options.v1.service) = {
+    namespace: "deckhouse"
+    description: "Cluster configuration management."
+  };
+
+  // GetClusterConfiguration reads the current ClusterConfiguration from the cluster.
+  rpc GetClusterConfiguration(GetClusterConfigurationRequest) returns (GetClusterConfigurationResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get cluster configuration"
+      description: "Read the full ClusterConfiguration from the d8-cluster-configuration Secret in kube-system. Returns the raw YAML string."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetStaticClusterConfiguration reads the StaticClusterConfiguration from the cluster.
+  rpc GetStaticClusterConfiguration(GetStaticClusterConfigurationRequest) returns (GetStaticClusterConfigurationResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get static cluster configuration"
+      description: "Read the StaticClusterConfiguration YAML from the d8-cluster-configuration Secret in kube-system (key static-cluster-configuration.yaml). Contains internal network CIDR and pod subnet for static cluster setups. Returns an error if the key is absent."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // UpdateKubernetesVersion changes the desired Kubernetes minor version.
+  rpc UpdateKubernetesVersion(UpdateKubernetesVersionRequest) returns (UpdateKubernetesVersionResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Update Kubernetes version"
+      description: "Update the kubernetesVersion field inside the ClusterConfiguration YAML stored in the d8-cluster-configuration Secret. Deckhouse will subsequently upgrade or downgrade the control plane and node components to the requested minor version. Performs a read-modify-write with up to 3 retries on resource conflicts. Use only after consulting the supported versions matrix — invalid values will be rejected by Deckhouse hooks."
+      annotations: { destructive_hint: true }
+    };
+  }
+}
+
+// GetClusterConfigurationRequest is empty — no parameters needed.
+message GetClusterConfigurationRequest {}
+
+// GetClusterConfigurationResponse contains the cluster configuration YAML.
+message GetClusterConfigurationResponse {
+  option (mcp.options.v1.message) = {
+    description: "ClusterConfiguration read from the cluster Secret."
+  };
+
+  string configuration = 1 [(mcp.options.v1.field) = {
+    description: "ClusterConfiguration YAML content from d8-cluster-configuration Secret."
+  }];
+}
+
+// GetStaticClusterConfigurationRequest is empty — no parameters needed.
+message GetStaticClusterConfigurationRequest {}
+
+// GetStaticClusterConfigurationResponse contains the static cluster configuration YAML.
+message GetStaticClusterConfigurationResponse {
+  option (mcp.options.v1.message) = {
+    description: "StaticClusterConfiguration read from the cluster Secret."
+  };
+
+  string configuration = 1 [(mcp.options.v1.field) = {
+    description: "StaticClusterConfiguration YAML content from the static-cluster-configuration.yaml key of the d8-cluster-configuration Secret."
+  }];
+}
+
+// UpdateKubernetesVersionRequest carries the target Kubernetes minor version.
+message UpdateKubernetesVersionRequest {
+  string version = 1 [(mcp.options.v1.field) = {
+    description: "Target Kubernetes minor version (MAJOR.MINOR, no patch component). Must be one of the versions supported by the installed Deckhouse release; consult the documentation matrix before submitting."
+    examples: [{ string_value: "1.28" }, { string_value: "1.29" }]
+    pattern: "^[0-9]+\\.[0-9]+$"
+    min_length: 3
+  }];
+}
+
+// UpdateKubernetesVersionResponse reports the result.
+message UpdateKubernetesVersionResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the UpdateKubernetesVersion operation."
+  };
+
+  bool updated = 1 [(mcp.options.v1.field) = {
+    description: "Whether the Secret was successfully patched."
+  }];
+  string previous_version = 2 [(mcp.options.v1.field) = {
+    description: "The kubernetesVersion value that was present before the call. Empty if the field was absent."
+    examples: [{ string_value: "1.27" }, { string_value: "1.28" }]
+  }];
+}

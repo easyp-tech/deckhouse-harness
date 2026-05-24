@@ -1,0 +1,601 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1;deckhousev1";
+
+import "google/protobuf/empty.proto";
+import "mcp/options/v1/options.proto";
+
+service DiagnosticsAPI {
+  option (mcp.options.v1.service) = {
+    namespace: "deckhouse"
+    description: "Read-only cluster diagnostics: nodes, pods, events, status."
+  };
+
+  // GetClusterStatus returns aggregated cluster status.
+  rpc GetClusterStatus(google.protobuf.Empty) returns (GetClusterStatusResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get cluster status"
+      description: "Aggregated status of the entire cluster: node readiness counts, per-NodeGroup health, names of ModuleConfigs with errors in their .status, DeckhouseReleases in Pending phase (awaiting deployment or manual approval), total unhealthy pod count across all namespaces, and the currently deployed Deckhouse version."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // ListNodes returns list of cluster nodes with optional filters.
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List nodes"
+      description: "List all cluster nodes with optional filtering by node group, status, and role."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // ListNodeGroups returns all NodeGroup resources.
+  rpc ListNodeGroups(google.protobuf.Empty) returns (ListNodeGroupsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List node groups"
+      description: "List all NodeGroup resources with status, conditions, and error information."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // ListStaticInstances returns StaticInstance resources with optional filters.
+  rpc ListStaticInstances(ListStaticInstancesRequest) returns (ListStaticInstancesResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List static instances"
+      description: "List StaticInstance resources with optional filtering by node group and phase."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // ListUnhealthyPods returns pods not in Running/Succeeded state.
+  rpc ListUnhealthyPods(ListUnhealthyPodsRequest) returns (ListUnhealthyPodsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List unhealthy pods"
+      description: "List pods not in Running or Succeeded phase (includes Pending, Failed, Unknown, and containers in CrashLoopBackOff or waiting states). Returns pod name, namespace, phase, and container-level status. Optionally filter by namespace; when omitted, all namespaces are searched."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetNode returns detailed information for a single cluster node.
+  rpc GetNode(GetNodeRequest) returns (GetNodeResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get node"
+      description: "Detailed information for a single cluster node: all conditions, allocatable and capacity resources, internal IP, kubelet version, optional StaticInstance phase (for static nodes), and the last 10 events."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetNodeGroup returns full spec and status of a single NodeGroup.
+  rpc GetNodeGroup(GetNodeGroupRequest) returns (GetNodeGroupResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get node group"
+      description: "Full spec and status of a Deckhouse NodeGroup plus the list of node names that belong to it (via label node.deckhouse.io/group)."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetDeckhouseLogs returns logs from the Deckhouse controller pod.
+  rpc GetDeckhouseLogs(GetDeckhouseLogsRequest) returns (GetDeckhouseLogsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get Deckhouse logs"
+      description: "Fetch logs of the Deckhouse controller pod running in d8-system. Supports tail line count, time window (e.g. '30m'), and client-side substring grep."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetNodeEvents returns Kubernetes Events for a specific node.
+  rpc GetNodeEvents(GetNodeEventsRequest) returns (GetNodeEventsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get node events"
+      description: "Return Kubernetes Events whose involvedObject.name matches the given node name. Limited to the most recent 10 events as enforced by the API server."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetStaticInstance returns detailed information for a single StaticInstance.
+  rpc GetStaticInstance(GetStaticInstanceRequest) returns (GetStaticInstanceResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get static instance"
+      description: "Detailed information for a single StaticInstance resource: address, phase, credentials reference, bound node name, and labels."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetPodLogs returns logs for a specific pod by namespace and name.
+  rpc GetPodLogs(GetPodLogsRequest) returns (GetPodLogsResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get pod logs"
+      description: "Fetch logs from a specific pod and optional container. Supports tail line count and time window (e.g. '30m', '1h'). If container is omitted, the default container is used."
+      annotations: { read_only_hint: true }
+    };
+  }
+}
+
+// GetClusterStatusResponse contains aggregated cluster status.
+message GetClusterStatusResponse {
+  option (mcp.options.v1.message) = {
+    description: "Aggregated snapshot of the cluster: node counts, node group health, errored modules, pending releases, unhealthy pods, and Deckhouse version."
+  };
+
+  NodeSummary nodes = 1 [(mcp.options.v1.field) = {
+    description: "Total, ready, and not-ready node counts."
+  }];
+  repeated NodeGroupStatus node_groups = 2 [(mcp.options.v1.field) = {
+    description: "Per-NodeGroup ready/total counts."
+  }];
+  repeated string errored_modules = 3 [(mcp.options.v1.field) = {
+    description: "Names of ModuleConfigs whose status contains an error message."
+  }];
+  repeated PendingRelease pending_releases = 4 [(mcp.options.v1.field) = {
+    description: "DeckhouseReleases in Pending phase awaiting deployment or approval."
+  }];
+  int32 unhealthy_pods_count = 5 [(mcp.options.v1.field) = {
+    description: "Number of pods not in Running or Succeeded phase across all namespaces."
+    minimum: 0
+  }];
+  string deckhouse_version = 6 [(mcp.options.v1.field) = {
+    description: "Semver version of the currently deployed Deckhouse release."
+    examples: [{ string_value: "v1.74.15" }]
+  }];
+}
+
+message NodeSummary {
+  option (mcp.options.v1.message) = {
+    description: "Cluster-wide node readiness counts."
+  };
+
+  int32 total = 1 [(mcp.options.v1.field) = { description: "Total number of nodes in the cluster." minimum: 0 }];
+  int32 ready = 2 [(mcp.options.v1.field) = { description: "Nodes with condition Ready=True." minimum: 0 }];
+  int32 not_ready = 3 [(mcp.options.v1.field) = { description: "Nodes with condition Ready!=True." minimum: 0 }];
+}
+
+message NodeGroupStatus {
+  option (mcp.options.v1.message) = {
+    description: "Ready/total counts for a single Deckhouse NodeGroup."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "NodeGroup resource name." }];
+  int32 ready = 2 [(mcp.options.v1.field) = { description: "Number of ready nodes in this group." minimum: 0 }];
+  int32 total = 3 [(mcp.options.v1.field) = { description: "Total nodes in this group." minimum: 0 }];
+}
+
+message PendingRelease {
+  option (mcp.options.v1.message) = {
+    description: "A DeckhouseRelease awaiting deployment or manual approval."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "DeckhouseRelease resource name." }];
+  string version = 2 [(mcp.options.v1.field) = {
+    description: "Semver version of the release."
+    examples: [{ string_value: "v1.74.15" }]
+  }];
+}
+
+// ListNodesRequest contains optional filters for listing nodes.
+message ListNodesRequest {
+  optional string node_group = 1 [(mcp.options.v1.field) = {
+    description: "Filter by NodeGroup name."
+    examples: [{ string_value: "worker" }, { string_value: "master" }]
+  }];
+  optional NodeStatusFilter status = 2 [(mcp.options.v1.field) = {
+    description: "Filter by node status."
+  }];
+  optional string role = 3 [(mcp.options.v1.field) = {
+    description: "Filter by node role label (node-role.kubernetes.io/<role>)."
+    examples: [{ string_value: "master" }, { string_value: "worker" }, { string_value: "control-plane" }]
+  }];
+}
+
+enum NodeStatusFilter {
+  option (mcp.options.v1.enum) = {
+    title: "Node Status Filter"
+    description: "Filter nodes by their readiness condition."
+  };
+
+  NODE_STATUS_FILTER_UNSPECIFIED = 0 [(mcp.options.v1.enum_value) = { hidden: true }];
+  NODE_STATUS_FILTER_READY = 1 [(mcp.options.v1.enum_value) = { description: "Only nodes with condition Ready=True." }];
+  NODE_STATUS_FILTER_NOT_READY = 2 [(mcp.options.v1.enum_value) = { description: "Only nodes with condition Ready!=True." }];
+  NODE_STATUS_FILTER_ALL = 3 [(mcp.options.v1.enum_value) = { description: "All nodes regardless of readiness. Same as omitting the filter." }];
+}
+
+message ListNodesResponse {
+  repeated NodeInfo nodes = 1 [(mcp.options.v1.field) = {
+    description: "List of cluster nodes matching the filter criteria."
+  }];
+}
+
+message NodeInfo {
+  option (mcp.options.v1.message) = {
+    description: "Kubernetes node with Deckhouse-specific metadata."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "Node object name." }];
+  string status = 2 [(mcp.options.v1.field) = {
+    description: "Readiness status: Ready or NotReady."
+    examples: [{ string_value: "Ready" }, { string_value: "NotReady" }]
+  }];
+  string role = 3 [(mcp.options.v1.field) = {
+    description: "Kubernetes role from node labels (e.g. master, worker)."
+    examples: [{ string_value: "master" }, { string_value: "worker" }]
+  }];
+  string internal_ip = 4 [(mcp.options.v1.field) = {
+    description: "Internal IP address from node status."
+    format: "ipv4"
+  }];
+  string os_image = 5 [(mcp.options.v1.field) = {
+    description: "OS image reported by kubelet (e.g. Ubuntu 22.04.4 LTS)."
+  }];
+  string kubelet_version = 6 [(mcp.options.v1.field) = {
+    description: "Kubelet version running on the node."
+    examples: [{ string_value: "v1.31.6" }]
+  }];
+  string age = 7 [(mcp.options.v1.field) = {
+    description: "Human-readable age since node creation (e.g. 3d, 12h, 45m)."
+    examples: [{ string_value: "3d" }, { string_value: "12h" }]
+  }];
+  string node_group = 8 [(mcp.options.v1.field) = {
+    description: "Name of the Deckhouse NodeGroup this node belongs to (from label node.deckhouse.io/group)."
+  }];
+}
+
+// ListNodeGroupsResponse contains all NodeGroup resources.
+message ListNodeGroupsResponse {
+  repeated NodeGroupInfo node_groups = 1 [(mcp.options.v1.field) = {
+    description: "All Deckhouse NodeGroup resources in the cluster."
+  }];
+}
+
+message NodeGroupInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse NodeGroup resource with status and conditions."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "NodeGroup resource name." }];
+  string node_type = 2 [(mcp.options.v1.field) = {
+    description: "Node provisioning type: Static, CloudEphemeral, or CloudPermanent."
+    examples: [{ string_value: "Static" }, { string_value: "CloudEphemeral" }]
+  }];
+  int32 ready = 3 [(mcp.options.v1.field) = { description: "Number of ready nodes in this group." minimum: 0 }];
+  int32 total = 4 [(mcp.options.v1.field) = { description: "Total nodes in this group." minimum: 0 }];
+  int32 up_to_date = 5 [(mcp.options.v1.field) = { description: "Nodes running the latest configuration." minimum: 0 }];
+  repeated Condition conditions = 6 [(mcp.options.v1.field) = {
+    description: "Status conditions from the NodeGroup status (e.g. Ready, Error)."
+  }];
+  string error = 7 [(mcp.options.v1.field) = {
+    description: "Last error message from the NodeGroup status, empty if healthy."
+  }];
+}
+
+message Condition {
+  option (mcp.options.v1.message) = {
+    description: "Kubernetes-style status condition."
+  };
+
+  string type = 1 [(mcp.options.v1.field) = {
+    description: "Condition type (e.g. Ready, Error, Updating)."
+  }];
+  string status = 2 [(mcp.options.v1.field) = {
+    description: "Condition status: True, False, or Unknown."
+    examples: [{ string_value: "True" }, { string_value: "False" }]
+  }];
+  string message = 3 [(mcp.options.v1.field) = {
+    description: "Human-readable detail about the condition."
+  }];
+}
+
+// ListStaticInstancesRequest contains optional filters.
+message ListStaticInstancesRequest {
+  optional string node_group = 1 [(mcp.options.v1.field) = {
+    description: "Filter by NodeGroup (via label selector)."
+    examples: [{ string_value: "worker" }, { string_value: "master" }]
+  }];
+  optional StaticInstancePhase phase = 2 [(mcp.options.v1.field) = {
+    description: "Filter by StaticInstance phase."
+  }];
+}
+
+enum StaticInstancePhase {
+  option (mcp.options.v1.enum) = {
+    title: "Static Instance Phase"
+    description: "Lifecycle phase of a StaticInstance resource."
+  };
+
+  STATIC_INSTANCE_PHASE_UNSPECIFIED = 0 [(mcp.options.v1.enum_value) = { hidden: true }];
+  STATIC_INSTANCE_PHASE_PENDING = 1 [(mcp.options.v1.enum_value) = { description: "Instance registered, waiting for bootstrapping to start." }];
+  STATIC_INSTANCE_PHASE_BOOTSTRAPPING = 2 [(mcp.options.v1.enum_value) = { description: "Node is being provisioned and configured." }];
+  STATIC_INSTANCE_PHASE_RUNNING = 3 [(mcp.options.v1.enum_value) = { description: "Node joined the cluster and is operational." }];
+  STATIC_INSTANCE_PHASE_CLEANING = 4 [(mcp.options.v1.enum_value) = { description: "Node is being decommissioned and cleaned up." }];
+  STATIC_INSTANCE_PHASE_ERROR = 5 [(mcp.options.v1.enum_value) = { description: "An error occurred during provisioning or operation." }];
+}
+
+message ListStaticInstancesResponse {
+  repeated StaticInstanceInfo instances = 1 [(mcp.options.v1.field) = {
+    description: "List of StaticInstance resources matching the filter criteria."
+  }];
+}
+
+message StaticInstanceInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse StaticInstance resource representing a bare-metal or VM node."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "StaticInstance resource name." }];
+  string address = 2 [(mcp.options.v1.field) = {
+    description: "IP address of the server."
+    format: "ipv4"
+  }];
+  string phase = 3 [(mcp.options.v1.field) = {
+    description: "Current lifecycle phase: Pending, Bootstrapping, Running, Cleaning, or Error."
+    examples: [{ string_value: "Running" }, { string_value: "Pending" }]
+  }];
+  string node_ref = 4 [(mcp.options.v1.field) = {
+    description: "Name of the Kubernetes Node object this instance is bound to. Empty if not yet joined."
+  }];
+  string last_update_time = 5 [(mcp.options.v1.field) = {
+    description: "Timestamp of the last status update."
+    format: "date-time"
+  }];
+}
+
+// ListUnhealthyPodsRequest contains optional filters.
+message ListUnhealthyPodsRequest {
+  optional string namespace = 1 [(mcp.options.v1.field) = {
+    description: "Filter by namespace. If empty, all namespaces are searched."
+    examples: [{ string_value: "d8-system" }, { string_value: "kube-system" }, { string_value: "default" }]
+  }];
+  optional bool exclude_completed = 2 [(mcp.options.v1.field) = {
+    description: "Exclude pods in Completed/Succeeded state."
+  }];
+}
+
+message ListUnhealthyPodsResponse {
+  repeated UnhealthyPodInfo pods = 1 [(mcp.options.v1.field) = {
+    description: "Pods not in Running or Succeeded phase."
+  }];
+}
+
+message UnhealthyPodInfo {
+  option (mcp.options.v1.message) = {
+    description: "A pod that is not healthy: Pending, Failed, CrashLoopBackOff, etc."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "Pod name." }];
+  string namespace = 2 [(mcp.options.v1.field) = { description: "Namespace the pod belongs to." }];
+  string status = 3 [(mcp.options.v1.field) = {
+    description: "Pod phase or container state reason (e.g. Pending, CrashLoopBackOff, ImagePullBackOff, Error)."
+    examples: [{ string_value: "CrashLoopBackOff" }, { string_value: "Pending" }]
+  }];
+  string reason = 4 [(mcp.options.v1.field) = {
+    description: "Reason from pod status or the last terminated container state."
+  }];
+  int32 restart_count = 5 [(mcp.options.v1.field) = {
+    description: "Total container restart count across all containers in the pod."
+    minimum: 0
+  }];
+  string age = 6 [(mcp.options.v1.field) = {
+    description: "Human-readable age since pod creation (e.g. 3d, 12h, 45m)."
+    examples: [{ string_value: "5m" }, { string_value: "2h" }]
+  }];
+}
+
+// GetNodeRequest contains the name of the node to retrieve.
+message GetNodeRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the Node object."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+}
+
+// GetNodeResponse contains detailed node information.
+message GetNodeResponse {
+  option (mcp.options.v1.message) = {
+    description: "Detailed information for a single cluster node."
+  };
+
+  NodeInfo node = 1 [(mcp.options.v1.field) = {
+    description: "Basic node info (same fields as ListNodes)."
+  }];
+  repeated NodeCondition conditions = 2 [(mcp.options.v1.field) = {
+    description: "All node conditions (Ready, MemoryPressure, DiskPressure, etc.)."
+  }];
+  map<string, string> allocatable = 3 [(mcp.options.v1.field) = {
+    description: "Allocatable resources available for scheduling (e.g. cpu, memory, pods)."
+  }];
+  map<string, string> capacity = 4 [(mcp.options.v1.field) = {
+    description: "Total capacity of the node resources."
+  }];
+  optional string static_instance_phase = 5 [(mcp.options.v1.field) = {
+    description: "Phase of the associated StaticInstance, if the node is a static node."
+    examples: [{ string_value: "Running" }, { string_value: "Bootstrapping" }]
+  }];
+  repeated NodeEvent events = 6 [(mcp.options.v1.field) = {
+    description: "Last 10 Kubernetes Events involving this node."
+  }];
+}
+
+message NodeCondition {
+  option (mcp.options.v1.message) = {
+    description: "A Kubernetes node condition."
+  };
+
+  string type = 1 [(mcp.options.v1.field) = {
+    description: "Condition type (e.g. Ready, MemoryPressure, DiskPressure, PIDPressure)."
+    examples: [{ string_value: "Ready" }]
+  }];
+  string status = 2 [(mcp.options.v1.field) = {
+    description: "Condition status: True, False, or Unknown."
+    examples: [{ string_value: "True" }, { string_value: "False" }]
+  }];
+  string message = 3 [(mcp.options.v1.field) = {
+    description: "Human-readable message for the condition."
+  }];
+}
+
+message NodeEvent {
+  option (mcp.options.v1.message) = {
+    description: "A Kubernetes event related to a node."
+  };
+
+  string reason = 1 [(mcp.options.v1.field) = {
+    description: "Short reason for the event (e.g. NodeReady, NodeNotReady)."
+  }];
+  string message = 2 [(mcp.options.v1.field) = {
+    description: "Human-readable event message."
+  }];
+  string type = 3 [(mcp.options.v1.field) = {
+    description: "Event type: Normal or Warning."
+    examples: [{ string_value: "Normal" }, { string_value: "Warning" }]
+  }];
+  string last_time = 4 [(mcp.options.v1.field) = {
+    description: "Timestamp of the last occurrence of this event."
+    format: "date-time"
+  }];
+  int32 count = 5 [(mcp.options.v1.field) = {
+    description: "Number of times this event has occurred. Zero is valid for events emitted via the events.k8s.io/v1 API where the count starts at zero on the first occurrence."
+    minimum: 0
+  }];
+}
+
+// GetNodeGroupRequest contains the name of the NodeGroup to retrieve.
+message GetNodeGroupRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the NodeGroup resource."
+    examples: [{ string_value: "worker" }]
+    min_length: 1
+  }];
+}
+
+// GetNodeGroupResponse contains detailed NodeGroup information.
+message GetNodeGroupResponse {
+  option (mcp.options.v1.message) = {
+    description: "Full spec and status of a Deckhouse NodeGroup."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "NodeGroup resource name." }];
+  string node_type = 2 [(mcp.options.v1.field) = {
+    description: "Type of nodes in this group (Static, CloudEphemeral, CloudPermanent, CloudStatic)."
+    examples: [{ string_value: "Static" }]
+  }];
+  int32 ready = 3 [(mcp.options.v1.field) = { description: "Number of ready nodes." minimum: 0 }];
+  int32 total = 4 [(mcp.options.v1.field) = { description: "Total nodes in the group." minimum: 0 }];
+  int32 up_to_date = 5 [(mcp.options.v1.field) = { description: "Nodes running the current configuration." minimum: 0 }];
+  string status_message = 6 [(mcp.options.v1.field) = {
+    description: "Human-readable status or error message from NodeGroup status."
+  }];
+  repeated string node_names = 7 [(mcp.options.v1.field) = {
+    description: "Names of nodes that belong to this NodeGroup."
+  }];
+}
+
+// GetDeckhouseLogsRequest contains optional log filtering parameters.
+message GetDeckhouseLogsRequest {
+  optional int32 tail = 1 [(mcp.options.v1.field) = {
+    description: "Number of log lines to return from the end. Default: 100."
+    default_value: { integer_value: 100 }
+    minimum: 1
+    maximum: 10000
+  }];
+  optional string since = 2 [(mcp.options.v1.field) = {
+    description: "Return logs since this duration ago (e.g. '30m', '2h')."
+    examples: [{ string_value: "30m" }, { string_value: "1h" }]
+  }];
+  optional string grep = 3 [(mcp.options.v1.field) = {
+    description: "Filter log lines to those containing this substring (case-sensitive)."
+  }];
+}
+
+// GetDeckhouseLogsResponse contains the log output.
+message GetDeckhouseLogsResponse {
+  string logs = 1 [(mcp.options.v1.field) = {
+    description: "Log output as a single string with newline-separated lines."
+  }];
+}
+
+// GetNodeEventsRequest contains the node name to fetch events for.
+message GetNodeEventsRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the Node whose events to fetch (matched against involvedObject.name)."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+}
+
+// GetNodeEventsResponse contains the list of Kubernetes Events for a node.
+message GetNodeEventsResponse {
+  repeated NodeEvent events = 1 [(mcp.options.v1.field) = {
+    description: "Kubernetes Events involving the requested node, ordered as returned by the API server (most recent first, limited to 10)."
+  }];
+}
+
+// GetStaticInstanceRequest contains the StaticInstance name.
+message GetStaticInstanceRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the StaticInstance resource."
+    examples: [{ string_value: "worker-01" }]
+    min_length: 1
+  }];
+}
+
+// GetStaticInstanceResponse contains the detailed StaticInstance information.
+message GetStaticInstanceResponse {
+  option (mcp.options.v1.message) = {
+    description: "Full details of a single StaticInstance resource."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "StaticInstance resource name." }];
+  string address = 2 [(mcp.options.v1.field) = {
+    description: "IP address of the server."
+    format: "ipv4"
+  }];
+  string phase = 3 [(mcp.options.v1.field) = {
+    description: "Current lifecycle phase from status.currentStatus.phase: Pending, Bootstrapping, Running, Cleaning, or Error. Empty if status is not yet populated."
+    examples: [{ string_value: "Running" }, { string_value: "Pending" }]
+  }];
+  string credentials_ref = 4 [(mcp.options.v1.field) = {
+    description: "Name of the referenced SSHCredentials resource (from spec.credentialsRef.name)."
+    examples: [{ string_value: "worker-01-ssh" }]
+  }];
+  string node_ref = 5 [(mcp.options.v1.field) = {
+    description: "Name of the bound Kubernetes Node object. Empty if not yet joined."
+  }];
+  map<string, string> labels = 6 [(mcp.options.v1.field) = {
+    description: "Labels attached to the StaticInstance for NodeGroup binding."
+  }];
+}
+
+// GetPodLogsRequest contains pod identification and log filtering parameters.
+message GetPodLogsRequest {
+  string namespace = 1 [(mcp.options.v1.field) = {
+    description: "Namespace of the pod."
+    examples: [{ string_value: "d8-system" }, { string_value: "kube-system" }]
+    min_length: 1
+  }];
+  string pod = 2 [(mcp.options.v1.field) = {
+    description: "Pod name."
+    examples: [{ string_value: "deckhouse-7d8c8f5b4d-abcde" }]
+    min_length: 1
+  }];
+  optional string container = 3 [(mcp.options.v1.field) = {
+    description: "Container name. If omitted, the default container (first container) is used."
+    examples: [{ string_value: "deckhouse" }]
+  }];
+  optional int32 tail = 4 [(mcp.options.v1.field) = {
+    description: "Number of log lines to return from the end."
+    minimum: 1
+    maximum: 10000
+  }];
+  optional string since = 5 [(mcp.options.v1.field) = {
+    description: "Return logs since this duration ago (e.g. '30m', '2h')."
+    examples: [{ string_value: "30m" }, { string_value: "1h" }]
+  }];
+}
+
+// GetPodLogsResponse contains the log output.
+message GetPodLogsResponse {
+  string logs = 1 [(mcp.options.v1.field) = {
+    description: "Log output as a single string with newline-separated lines."
+  }];
+}

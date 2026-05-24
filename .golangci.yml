@@ -1,0 +1,127 @@
+version: "2"
+run:
+  tests: false
+linters:
+  default: all
+  disable:
+    - wsl # deprecated, replaced by wsl_v5
+  settings:
+    tagliatelle:
+      case:
+        use-field-name: false
+        rules:
+          json: snake
+          yaml: snake
+          xml: snake
+          bson: snake
+          avro: snake
+          mapstructure: snake
+    interfacebloat:
+      max: 25
+    depguard:
+      rules:
+        cmd:
+          files:
+            - cmd/*/*.go
+          allow:
+            - $gostd
+        main:
+          files:
+            - ""
+          allow:
+            - $gostd
+        tests:
+          files:
+            - $test
+          allow:
+            - $gostd
+            - github.com/stretchr/testify
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+    rules:
+      - linters:
+          - ireturn
+        text: returns generic interface
+      - linters:
+          - ireturn
+        path: internal/k8s/client\.go
+        text: returns interface
+      - linters:
+          - gochecknoglobals
+        path: internal/k8s/client\.go
+      - linters:
+          - lll
+        source: "^//go:generate "
+      - linters:
+          - revive
+        text: "unexported-return: exported func .+ returns unexported type .+, which can be annoying to use"
+      - linters:
+          - gocritic
+        path: cmd/[^/]+/.+\.go
+        text: exitAfterDefer
+      - linters:
+          - revive
+        text: "package name"
+      - linters:
+          - dupl
+          - errcheck
+          - exhaustruct
+          - funlen
+          - gochecknoglobals
+          - gocyclo
+          - gosec
+          - ireturn
+          - lll
+          - unparam
+        path: _test\.go
+      # k8s option structs have many optional fields with meaningful zero values; filling all is noise
+      - linters:
+          - exhaustruct
+        path: internal/k8s/
+      # net/http.Server and MCP implementation structs are third-party with many optional fields
+      - linters:
+          - exhaustruct
+        path: cmd/
+      # Proto-generated request/response structs don't need all fields set
+      - linters:
+          - exhaustruct
+        path: internal/handler/
+        source: "pb\\."
+    paths:
+      - bin
+      - config
+      - debian
+      - docs
+      - scripts
+      - tests
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/easyp-tech/deckhouse-mcp)
+      custom-order: true
+  exclusions:
+    generated: lax
+    paths:
+      - bin
+      - config
+      - debian
+      - docs
+      - scripts
+      - tests
+      - third_party$
+      - builtin$
+      - examples$

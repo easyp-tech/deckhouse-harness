@@ -1,0 +1,14 @@
+# Binary (compiled in repo root only — keep cmd/deckhouse-mcp source tree visible)
+/deckhouse-mcp
+kind
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Test artifacts
+tests/integration/.port-forward.pid
+
+# OS
+.DS_Store

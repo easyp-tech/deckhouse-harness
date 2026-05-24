@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1;deckhousev1";
+
+import "mcp/options/v1/options.proto";
+
+service ReleasesAPI {
+  option (mcp.options.v1.service) = {
+    namespace: "deckhouse"
+    description: "DeckhouseRelease management: list and approve releases."
+  };
+
+  // ListDeckhouseReleases returns all DeckhouseRelease resources.
+  rpc ListDeckhouseReleases(ListDeckhouseReleasesRequest) returns (ListDeckhouseReleasesResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List Deckhouse releases"
+      description: "List all DeckhouseRelease resources with optional filtering by phase. Returns version, phase (Pending/Deployed/Superseded/Skipped), approval status, transition time, and changelog link for each release."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // GetDeckhouseRelease returns full spec and status of a single DeckhouseRelease.
+  rpc GetDeckhouseRelease(GetDeckhouseReleaseRequest) returns (GetDeckhouseReleaseResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Get Deckhouse release"
+      description: "Full spec and status of a single DeckhouseRelease by version string (e.g. 'v1.74.0'): requirements, changelog link, phase, and approval status."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // ApproveRelease approves a pending Deckhouse release for manual update mode.
+  rpc ApproveRelease(ApproveReleaseRequest) returns (ApproveReleaseResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Approve release"
+      description: "Approve a pending Deckhouse release for manual update mode by patching the release.deckhouse.io/approved annotation to 'true'. Safe to call when already approved."
+      annotations: { destructive_hint: true }
+    };
+  }
+}
+
+// ListDeckhouseReleasesRequest contains optional filters.
+message ListDeckhouseReleasesRequest {
+  optional DeckhouseReleasePhase phase = 1 [(mcp.options.v1.field) = {
+    description: "Filter by release phase."
+  }];
+}
+
+// DeckhouseReleasePhase represents the lifecycle phase of a DeckhouseRelease.
+enum DeckhouseReleasePhase {
+  option (mcp.options.v1.enum) = {
+    title: "Deckhouse Release Phase"
+    description: "Lifecycle phase of a DeckhouseRelease resource."
+  };
+
+  DECKHOUSE_RELEASE_PHASE_UNSPECIFIED = 0 [(mcp.options.v1.enum_value) = { hidden: true }];
+  DECKHOUSE_RELEASE_PHASE_PENDING = 1 [(mcp.options.v1.enum_value) = { description: "Release is waiting to be deployed (may require manual approval)." }];
+  DECKHOUSE_RELEASE_PHASE_DEPLOYED = 2 [(mcp.options.v1.enum_value) = { description: "Release is currently active and running." }];
+  DECKHOUSE_RELEASE_PHASE_SUPERSEDED = 3 [(mcp.options.v1.enum_value) = { description: "Release was replaced by a newer version." }];
+  DECKHOUSE_RELEASE_PHASE_SKIPPED = 4 [(mcp.options.v1.enum_value) = { description: "Release was skipped during an upgrade." }];
+}
+
+message ListDeckhouseReleasesResponse {
+  repeated DeckhouseReleaseInfo releases = 1 [(mcp.options.v1.field) = {
+    description: "DeckhouseRelease resources matching the filter criteria."
+  }];
+}
+
+message DeckhouseReleaseInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse platform release with version, phase, and approval status."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "DeckhouseRelease resource name." }];
+  string phase = 2 [(mcp.options.v1.field) = {
+    description: "Current release phase: Pending, Deployed, Superseded, or Skipped."
+    examples: [{ string_value: "Deployed" }, { string_value: "Pending" }]
+  }];
+  string version = 3 [(mcp.options.v1.field) = {
+    description: "Semver version of the release."
+    examples: [{ string_value: "v1.74.15" }]
+  }];
+  string transition_time = 4 [(mcp.options.v1.field) = {
+    description: "Timestamp when the release last changed phase."
+    format: "date-time"
+  }];
+  string changelog_link = 5 [(mcp.options.v1.field) = {
+    description: "URL to the release changelog on the Deckhouse website."
+    format: "uri"
+  }];
+  bool approved = 6 [(mcp.options.v1.field) = {
+    description: "Whether this release has been manually approved. Relevant only for Pending releases when manual approval mode is enabled."
+  }];
+}
+
+// GetDeckhouseReleaseRequest contains the version to retrieve.
+message GetDeckhouseReleaseRequest {
+  string version = 1 [(mcp.options.v1.field) = {
+    description: "Release version string, e.g. 'v1.74.0'."
+    examples: [{ string_value: "v1.74.0" }]
+    pattern: "^v\\d+\\.\\d+\\.\\d+$"
+    min_length: 6
+  }];
+}
+
+// GetDeckhouseReleaseResponse contains full release spec and status.
+message GetDeckhouseReleaseResponse {
+  option (mcp.options.v1.message) = {
+    description: "Full spec and status of a single DeckhouseRelease."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = { description: "DeckhouseRelease resource name." }];
+  string phase = 2 [(mcp.options.v1.field) = {
+    description: "Current release phase: Pending, Deployed, Superseded, or Skipped."
+    examples: [{ string_value: "Deployed" }, { string_value: "Pending" }]
+  }];
+  string version = 3 [(mcp.options.v1.field) = {
+    description: "Semver version of the release."
+    examples: [{ string_value: "v1.74.0" }]
+  }];
+  string transition_time = 4 [(mcp.options.v1.field) = {
+    description: "Timestamp when the release last changed phase."
+    format: "date-time"
+  }];
+  bool approved = 5 [(mcp.options.v1.field) = {
+    description: "Whether this release has been manually approved."
+  }];
+  string changelog_link = 6 [(mcp.options.v1.field) = {
+    description: "URL to the release changelog."
+    format: "uri"
+  }];
+  map<string, string> requirements = 7 [(mcp.options.v1.field) = {
+    description: "Requirements that must be met for this release to be installed."
+  }];
+}
+
+// ApproveReleaseRequest contains the version to approve.
+message ApproveReleaseRequest {
+  string version = 1 [(mcp.options.v1.field) = {
+    description: "Release version string to approve, e.g. 'v1.74.0'."
+    examples: [{ string_value: "v1.74.0" }]
+    pattern: "^v\\d+\\.\\d+\\.\\d+$"
+    min_length: 6
+  }];
+}
+
+// ApproveReleaseResponse contains the result of the approval.
+message ApproveReleaseResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the approve release operation."
+  };
+
+  bool success = 1 [(mcp.options.v1.field) = { description: "Whether the operation succeeded." }];
+  bool previous_approved = 2 [(mcp.options.v1.field) = {
+    description: "Whether the release was already approved before this call."
+  }];
+}

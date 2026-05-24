@@ -1,0 +1,24 @@
+deps:
+  - github.com/easyp-tech/protoc-gen-mcp@v0.3.1
+
+lint:
+  use:
+    - PACKAGE_DEFINED
+    - PACKAGE_VERSION_SUFFIX
+    - RPC_NO_CLIENT_STREAMING
+    - RPC_NO_SERVER_STREAMING
+
+generate:
+  inputs:
+    - directory:
+        path: proto
+        root: "."
+  plugins:
+    - name: go
+      out: .
+      opts:
+        paths: source_relative
+    - command: ["go", "run", "github.com/easyp-tech/protoc-gen-mcp/cmd/protoc-gen-mcp@v0.3.1"]
+      out: .
+      opts:
+        paths: source_relative

@@ -1,0 +1,261 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1;deckhousev1";
+
+import "mcp/options/v1/options.proto";
+
+// SourcesAPI — module source and update policy management.
+service SourcesAPI {
+  option (mcp.options.v1.service) = {
+    namespace: "deckhouse"
+    description: "Module source and update policy management."
+  };
+
+  // ListModuleSources returns all ModuleSource resources in the cluster.
+  rpc ListModuleSources(ListModuleSourcesRequest) returns (ListModuleSourcesResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List module sources"
+      description: "List all ModuleSource resources — OCI registries from which Deckhouse pulls modules."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // CreateModuleSource creates a new ModuleSource resource.
+  rpc CreateModuleSource(CreateModuleSourceRequest) returns (CreateModuleSourceResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Create module source"
+      description: "Create a new ModuleSource pointing at an OCI registry. Returns already-exists error if a source with the same name is already defined."
+      annotations: { read_only_hint: false, idempotent_hint: false }
+    };
+  }
+
+  // ListModuleUpdatePolicies returns all ModuleUpdatePolicy resources.
+  rpc ListModuleUpdatePolicies(ListModuleUpdatePoliciesRequest) returns (ListModuleUpdatePoliciesResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List module update policies"
+      description: "List all ModuleUpdatePolicy resources controlling auto-update behaviour for modules."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // CreateModuleUpdatePolicy creates a new ModuleUpdatePolicy resource.
+  rpc CreateModuleUpdatePolicy(CreateModuleUpdatePolicyRequest) returns (CreateModuleUpdatePolicyResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Create module update policy"
+      description: "Create a new ModuleUpdatePolicy with the given update mode. Returns already-exists error if a policy with the same name is already defined."
+      annotations: { read_only_hint: false, idempotent_hint: false }
+    };
+  }
+
+  // ListModuleReleases returns ModuleRelease resources for a specific module.
+  rpc ListModuleReleases(ListModuleReleasesRequest) returns (ListModuleReleasesResponse) {
+    option (mcp.options.v1.method) = {
+      title: "List module releases"
+      description: "List ModuleRelease resources (available versions) for a specific module. Filtering by module_name is required; optional phase filter narrows results to one lifecycle state."
+      annotations: { read_only_hint: true }
+    };
+  }
+
+  // DeleteModuleSource deletes a ModuleSource resource with optional force.
+  rpc DeleteModuleSource(DeleteModuleSourceRequest) returns (DeleteModuleSourceResponse) {
+    option (mcp.options.v1.method) = {
+      title: "Delete module source"
+      description: "Delete a ModuleSource. By default (force=false), the request fails when active ModuleRelease resources reference the source. Pass force=true to bypass the safety check and rely on Deckhouse owner references for cascade cleanup."
+      annotations: { read_only_hint: false, destructive_hint: true, idempotent_hint: false }
+    };
+  }
+}
+
+// ModuleSourceInfo describes a single ModuleSource resource.
+message ModuleSourceInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse ModuleSource resource — an OCI registry providing modules."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleSource resource name."
+    examples: [{ string_value: "deckhouse" }, { string_value: "custom-modules" }]
+  }];
+  string registry = 2 [(mcp.options.v1.field) = {
+    description: "OCI registry URI (spec.registry.repo)."
+    examples: [{ string_value: "registry.deckhouse.io/deckhouse/ce/modules" }]
+  }];
+  string status = 3 [(mcp.options.v1.field) = {
+    description: "Human-readable status from status.message or status.syncTime."
+  }];
+}
+
+// ListModuleSourcesRequest is empty — no filters.
+message ListModuleSourcesRequest {}
+
+// ListModuleSourcesResponse contains all ModuleSource resources.
+message ListModuleSourcesResponse {
+  repeated ModuleSourceInfo sources = 1 [(mcp.options.v1.field) = {
+    description: "All ModuleSource resources in the cluster."
+  }];
+}
+
+// CreateModuleSourceRequest contains the name and registry URI.
+message CreateModuleSourceRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleSource resource name."
+    examples: [{ string_value: "custom-modules" }]
+    min_length: 1
+  }];
+  string registry = 2 [(mcp.options.v1.field) = {
+    description: "OCI registry URI to set in spec.registry.repo."
+    examples: [{ string_value: "registry.example.com/modules" }]
+    min_length: 1
+  }];
+}
+
+// CreateModuleSourceResponse reports the outcome of creation.
+message CreateModuleSourceResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the CreateModuleSource operation."
+  };
+
+  bool created = 1 [(mcp.options.v1.field) = {
+    description: "Whether the ModuleSource was successfully created."
+  }];
+  string name = 2 [(mcp.options.v1.field) = {
+    description: "Name of the created ModuleSource (echo of the request)."
+  }];
+}
+
+// ModuleUpdatePolicyInfo describes a single ModuleUpdatePolicy resource.
+message ModuleUpdatePolicyInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse ModuleUpdatePolicy resource — auto-update policy for modules."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleUpdatePolicy resource name."
+    examples: [{ string_value: "auto" }, { string_value: "manual" }]
+  }];
+  string update_mode = 2 [(mcp.options.v1.field) = {
+    description: "Update mode from spec.update.mode."
+    examples: [{ string_value: "Auto" }, { string_value: "Manual" }]
+  }];
+}
+
+// ListModuleUpdatePoliciesRequest is empty — no filters.
+message ListModuleUpdatePoliciesRequest {}
+
+// ListModuleUpdatePoliciesResponse contains all ModuleUpdatePolicy resources.
+message ListModuleUpdatePoliciesResponse {
+  repeated ModuleUpdatePolicyInfo policies = 1 [(mcp.options.v1.field) = {
+    description: "All ModuleUpdatePolicy resources in the cluster."
+  }];
+}
+
+// CreateModuleUpdatePolicyRequest contains the name and update mode.
+message CreateModuleUpdatePolicyRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleUpdatePolicy resource name."
+    examples: [{ string_value: "auto" }]
+    min_length: 1
+  }];
+  string update_mode = 2 [(mcp.options.v1.field) = {
+    description: "Update mode to set in spec.update.mode."
+    examples: [{ string_value: "Auto" }, { string_value: "Manual" }]
+    min_length: 1
+  }];
+  map<string, string> match_labels = 3 [(mcp.options.v1.field) = {
+    description: "Label selector for spec.moduleReleaseSelector.labelSelector.matchLabels — required by the Deckhouse webhook. Each entry binds the policy to ModuleRelease resources whose labels include the given key/value. Most common key is \"module\" with the module name as value."
+  }];
+}
+
+// CreateModuleUpdatePolicyResponse reports the outcome of creation.
+message CreateModuleUpdatePolicyResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the CreateModuleUpdatePolicy operation."
+  };
+
+  bool created = 1 [(mcp.options.v1.field) = {
+    description: "Whether the ModuleUpdatePolicy was successfully created."
+  }];
+  string name = 2 [(mcp.options.v1.field) = {
+    description: "Name of the created ModuleUpdatePolicy (echo of the request)."
+  }];
+}
+
+// ModuleReleaseInfo describes a single ModuleRelease resource (a version of a module).
+message ModuleReleaseInfo {
+  option (mcp.options.v1.message) = {
+    description: "Deckhouse ModuleRelease resource — a specific version of a module available from a ModuleSource."
+  };
+
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "ModuleRelease resource name (metadata.name)."
+    examples: [{ string_value: "deckhouse-1.70.0" }]
+  }];
+  string module = 2 [(mcp.options.v1.field) = {
+    description: "Owning module name (labels[\"module\"])."
+    examples: [{ string_value: "deckhouse" }]
+  }];
+  string version = 3 [(mcp.options.v1.field) = {
+    description: "Module version (spec.version)."
+    examples: [{ string_value: "1.70.0" }]
+  }];
+  string source = 4 [(mcp.options.v1.field) = {
+    description: "Originating ModuleSource (labels[\"source\"])."
+    examples: [{ string_value: "deckhouse" }]
+  }];
+  string phase = 5 [(mcp.options.v1.field) = {
+    description: "Lifecycle phase (status.phase)."
+    examples: [{ string_value: "Deployed" }, { string_value: "Pending" }, { string_value: "Superseded" }, { string_value: "Suspended" }]
+  }];
+  string approved = 6 [(mcp.options.v1.field) = {
+    description: "Whether the release is approved (spec.approved). Empty string when unset."
+    examples: [{ string_value: "true" }, { string_value: "false" }, { string_value: "" }]
+  }];
+}
+
+// ListModuleReleasesRequest filters releases by module and optional phase.
+message ListModuleReleasesRequest {
+  string module_name = 1 [(mcp.options.v1.field) = {
+    description: "Required filter: only releases with labels[\"module\"] equal to this value are returned."
+    examples: [{ string_value: "deckhouse" }, { string_value: "console" }]
+    min_length: 1
+  }];
+  optional string phase = 2 [(mcp.options.v1.field) = {
+    description: "Optional filter: restrict results to a specific lifecycle phase (case-sensitive)."
+    examples: [{ string_value: "Deployed" }]
+  }];
+}
+
+// ListModuleReleasesResponse contains the filtered list of releases.
+message ListModuleReleasesResponse {
+  repeated ModuleReleaseInfo releases = 1 [(mcp.options.v1.field) = {
+    description: "ModuleRelease resources matching the requested module and optional phase filter."
+  }];
+}
+
+// DeleteModuleSourceRequest identifies a ModuleSource to delete.
+message DeleteModuleSourceRequest {
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the ModuleSource to delete."
+    examples: [{ string_value: "custom-modules" }]
+    min_length: 1
+  }];
+  optional bool force = 2 [(mcp.options.v1.field) = {
+    description: "When true, skip the safety pre-check for active ModuleRelease resources. Defaults to false. Use with caution: cascade cleanup relies on Deckhouse owner references."
+  }];
+}
+
+// DeleteModuleSourceResponse reports the outcome of the delete operation.
+message DeleteModuleSourceResponse {
+  option (mcp.options.v1.message) = {
+    description: "Result of the DeleteModuleSource operation."
+  };
+
+  bool deleted = 1 [(mcp.options.v1.field) = {
+    description: "Whether the ModuleSource was successfully deleted."
+  }];
+  string message = 2 [(mcp.options.v1.field) = {
+    description: "Human-readable description of the outcome."
+  }];
+}
