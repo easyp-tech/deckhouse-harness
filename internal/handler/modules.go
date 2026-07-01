@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/easyp-tech/deckhouse-mcp/internal/k8s"
-	pb "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1"
+	"github.com/easyp-tech/deckhouse-harness/internal/k8s"
+	pb "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1"
 )
 
 // errNotImplemented is returned by GREEN-stub handler methods awaiting full implementation.

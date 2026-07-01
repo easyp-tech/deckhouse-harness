@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package deckhouse.v1;
 
-option go_package = "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1;deckhousev1";
+option go_package = "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1;deckhousev1";
 
 import "google/protobuf/empty.proto";
 import "mcp/options/v1/options.proto";

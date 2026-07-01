@@ -36,8 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Infrastructure
 
 - `protoc-gen-mcp` upgraded v0.3.1 → v0.5.0 (`easyp.yaml`, `go.mod`, `easyp.lock`)
-- `cmd/deckhouse-mcp/main.go` rewritten: `loadKubeConfig()`, `configureLogger()`, `server.Run(ctx, &mcp.StdioTransport{})`
-- `Taskfile.yml`: `docker:build` and `docker:load` tasks removed; `build` now outputs `./deckhouse-mcp`
+- `cmd/deckhouse-harness/main.go` rewritten: `loadKubeConfig()`, `configureLogger()`, `server.Run(ctx, &mcp.StdioTransport{})`
+- `Taskfile.yml`: `docker:build` and `docker:load` tasks removed; `build` now outputs `./deckhouse-harness`
 - `tests/integration/setup.sh`: no Docker build/load, no kubectl apply deploy, no port-forward; builds local binary
 - `tests/integration/test.sh`: SSE/curl helpers replaced with FIFO-based stdio transport (`mcp_connect`/`mcp_disconnect`/`mcp_send`/`mcp_recv`); all 58 test cases unchanged
 - `tests/integration/teardown.sh`: port-forward cleanup removed; binary cleanup added
@@ -90,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `.github/workflows/ci.yml` with three independent jobs on `pull_request` and pushes to `main`:
   - `lint` — `easyp lint` over all `.proto` files
   - `test` — `go test ./...` (134 tests)
-  - `build` — `go build ./cmd/deckhouse-mcp`
+  - `build` — `go build ./cmd/deckhouse-harness`
 - Concurrency group keyed on `github.ref` so superseded runs are cancelled. Permissions limited to `contents: read`. No integration job, no docker, no release automation in scope.
 
 ---
@@ -132,7 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `k8s.Client` interface: +13 methods (`ListNodeEvents`, `GetPodLogs`, `GetSecret`, `GetModuleConfig`, `UpdateModuleConfig`, `GetNode`, `CordonNode`, `ListModules`, `UncordonNode`, `EvictPod`, `UpdateSecret`, `DeleteSSHCredentials`, `DeleteNodeGroup`, `ListModuleSources`, `CreateModuleSource`, `ListModuleUpdatePolicies`, `CreateModuleUpdatePolicy`)
 - 2 new GVR constants: `ModuleSourceGVR`, `ModuleUpdatePolicyGVR` (deckhouse.io/v1alpha1)
 - New handler file `internal/handler/sources.go` (`SourcesHandler`)
-- Server registration: `pb.RegisterSourcesAPITools` (6th `Register*APITools` in `cmd/deckhouse-mcp/main.go`)
+- Server registration: `pb.RegisterSourcesAPITools` (6th `Register*APITools` in `cmd/deckhouse-harness/main.go`)
 - Integration CRDs: `modulesources.deckhouse.io`, `moduleupdatepolicies.deckhouse.io` in `tests/integration/crds.yaml`
 
 #### RBAC (least-privilege expansion)
@@ -183,7 +183,7 @@ Initial release — MVP (P0) feature set. MCP server for managing Deckhouse Kube
 - **Proto-first design**: services and MCP tool schemas defined in `.proto` files, Go bindings generated via `protoc-gen-mcp` + `easyp`
 - **Four proto services**: `DiagnosticsAPI`, `ModulesAPI`, `ReleasesAPI`, `NodesAPI` (10 RPCs total); `ConfigAPI` and `SourcesAPI` stubs for future phases
 - **SSE transport**: HTTP server with `mcp.NewSSEHandler`, listens on `:8080` (configurable via `LISTEN_ADDR`)
-- **In-cluster auth**: `rest.InClusterConfig()` + ServiceAccount `deckhouse-mcp` in `d8-system`
+- **In-cluster auth**: `rest.InClusterConfig()` + ServiceAccount `deckhouse-harness` in `d8-system`
 - **k8s.Client interface** with typed client for core resources (`nodes`, `pods`) and dynamic client for Deckhouse CRDs (`NodeGroup`, `StaticInstance`, `SSHCredentials`, `ModuleConfig`, `DeckhouseRelease`)
 - **Graceful shutdown**: `signal.NotifyContext(SIGINT, SIGTERM)` + `http.Server.Shutdown()`
 - **Multi-stage Dockerfile**: `golang:1.26` build → `distroless` runtime image
@@ -198,4 +198,4 @@ Initial release — MVP (P0) feature set. MCP server for managing Deckhouse Kube
 - Mock `k8s.Client` using function fields (no external mock library)
 - Coverage: `DiagnosticsHandler` (19 tests), `ModulesHandler` (3), `ReleasesHandler` (2), `NodesHandler` (11), error helpers (3)
 
-[0.1.0]: https://github.com/easyp-tech/deckhouse-mcp/releases/tag/v0.1.0
+[0.1.0]: https://github.com/easyp-tech/deckhouse-harness/releases/tag/v0.1.0

@@ -15,8 +15,8 @@
 
 **First Run:**
 ```bash
-git clone https://github.com/easyp-tech/deckhouse-mcp
-cd deckhouse-mcp
+git clone https://github.com/easyp-tech/deckhouse-harness
+cd deckhouse-harness
 easyp mod download    # download proto dependencies
 task generate         # generate *.pb.go + *.mcp.go
 task build            # verify build
@@ -75,10 +75,10 @@ Lints all `.proto` files against rules in `easyp.yaml`. Run before committing pr
 ```bash
 task build
 # Equivalent to:
-go build ./cmd/deckhouse-mcp
+go build ./cmd/deckhouse-harness
 ```
 
-Output: `./deckhouse-mcp` binary (or `./deckhouse-mcp.exe` on Windows).
+Output: `./deckhouse-harness` binary (or `./deckhouse-harness.exe` on Windows).
 
 ### Testing
 
@@ -99,10 +99,10 @@ go test ./internal/handler/ -run TestGetClusterStatus -v
 
 ```bash
 task docker:build
-# docker build -t deckhouse-mcp:local .
+# docker build -t deckhouse-harness:local .
 
 task docker:load
-# kind load docker-image deckhouse-mcp:local --name d8
+# kind load docker-image deckhouse-harness:local --name d8
 ```
 
 Multi-stage Dockerfile: `golang:1.26` builder → `distroless/static-debian12` runtime.

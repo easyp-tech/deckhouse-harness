@@ -66,4 +66,4 @@ jobs:
           cache: true
 
       - name: Build server
-        run: go build -v ./cmd/deckhouse-mcp
+        run: go build -v ./cmd/deckhouse-harness

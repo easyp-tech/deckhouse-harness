@@ -12,7 +12,7 @@ Authenticates to Kubernetes via in-cluster config (inside a Pod) or `~/.kube/con
 - **easyp** — linting, code generation, proto dependency management
 - **Kubernetes client-go v0.35.3** — typed client for core resources, dynamic client for CRDs
 - **Deckhouse CRDs** — `NodeGroup` (v1), `StaticInstance` (v1alpha2), `SSHCredentials` (v1alpha2), `ModuleConfig` (v1alpha1), `DeckhouseRelease` (v1alpha1)
-- **Module**: `github.com/easyp-tech/deckhouse-mcp`
+- **Module**: `github.com/easyp-tech/deckhouse-harness`
 
 ## Architecture
 
@@ -28,7 +28,7 @@ proto/                           # .proto files — single source of truth for a
 │   ├── config.proto             # Block E: ConfigAPI (stub, no RPCs yet)
 │   └── sources.proto            # Block F: SourcesAPI (stub, no RPCs yet)
 cmd/
-└── deckhouse-mcp/
+└── deckhouse-harness/
     └── main.go                  # Dual-mode (stdio default + SSE via LISTEN_ADDR/-listen)
 internal/
 ├── handler/                     # ToolHandler interface implementations
@@ -84,7 +84,7 @@ easyp lint
 easyp generate
 
 # Build
-go build -o deckhouse-mcp ./cmd/deckhouse-mcp
+go build -o deckhouse-harness ./cmd/deckhouse-harness
 
 # Test (38 tests, ~60s due to polling tests)
 go test ./...
@@ -92,7 +92,7 @@ go test ./...
 # All-in-one via Taskfile (go-task)
 task generate        # easyp mod download && easyp generate
 task lint            # easyp lint
-task build           # go build -o deckhouse-mcp ./cmd/deckhouse-mcp
+task build           # go build -o deckhouse-harness ./cmd/deckhouse-harness
 task test            # go test ./...
 task integration     # setup → test → teardown
 ```
@@ -149,7 +149,7 @@ New methods should be added to this interface when implementing P1+ handlers.
 | ModuleConfig | deckhouse.io | v1alpha1 | moduleconfigs |
 | DeckhouseRelease | deckhouse.io | v1alpha1 | deckhouserelease |
 
-### Server Entrypoint (`cmd/deckhouse-mcp/main.go`)
+### Server Entrypoint (`cmd/deckhouse-harness/main.go`)
 
 - `loadKubeConfig()` — tries `rest.InClusterConfig()` first, falls back to `clientcmd` (`KUBECONFIG` env or `~/.kube/config`)
 - `configureLogger()` — builds `*slog.Logger` from `LOG_LEVEL` / `LOG_OUTPUT` / `LOG_FILE` env vars; logs never go to stdout (reserved for MCP protocol); default: stderr + INFO
@@ -274,4 +274,4 @@ Build MCP servers from protobuf definitions using `protoc-gen-mcp` and EasyP.
 - [protoc-gen-mcp](https://github.com/easyp-tech/protoc-gen-mcp)
 - [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 - [MCP Spec](https://spec.modelcontextprotocol.io)
-- [SDD Artifacts](.spec/features/deckhouse-mcp-mvp/) — explore, requirements, design, task-plan, implementation, review
+- [SDD Artifacts](.spec/features/deckhouse-harness-mvp/) — explore, requirements, design, task-plan, implementation, review

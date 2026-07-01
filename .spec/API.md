@@ -7,7 +7,7 @@
 **Tool definitions:** Generated from protobuf via `protoc-gen-mcp`. All tools use ProtoJSON encoding.  
 **Transport:** `POST /sse` — SSE connection; MCP messages multiplexed over stream.  
 **Auth:** None at the MCP level — Kubernetes RBAC enforces access at the Pod/SA level.  
-**Base URL:** `http://<service>:8080` (in-cluster: `deckhouse-mcp.d8-system.svc.cluster.local:8080`)
+**Base URL:** `http://<service>:8080` (in-cluster: `deckhouse-harness.d8-system.svc.cluster.local:8080`)
 
 ## 2. Tool Naming
 

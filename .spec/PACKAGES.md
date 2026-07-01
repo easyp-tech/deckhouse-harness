@@ -3,7 +3,7 @@
 
 ## Application Layer
 
-### `cmd/deckhouse-mcp`
+### `cmd/deckhouse-harness`
 
 **Entry point and wiring.** Creates all dependencies and starts the HTTP server.
 

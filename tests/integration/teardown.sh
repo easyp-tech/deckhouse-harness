@@ -9,9 +9,9 @@ KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-d8}"
 info()  { echo "==> $*"; }
 
 # --- Clean up MCP binary ------------------------------------------------------
-if [ -f "$SCRIPT_DIR/deckhouse-mcp" ]; then
+if [ -f "$SCRIPT_DIR/deckhouse-harness" ]; then
   info "Removing MCP binary..."
-  rm -f "$SCRIPT_DIR/deckhouse-mcp"
+  rm -f "$SCRIPT_DIR/deckhouse-harness"
 fi
 
 # --- Delete test resources ----------------------------------------------------

@@ -1,7 +1,7 @@
 version: "3"
 
 vars:
-  BINARY_NAME: deckhouse-mcp
+  BINARY_NAME: deckhouse-harness
   NAMESPACE: d8-system
 
 tasks:
@@ -19,7 +19,7 @@ tasks:
   build:
     desc: Build Go binary
     cmds:
-      - go build -o {{.BINARY_NAME}} ./cmd/deckhouse-mcp
+      - go build -o {{.BINARY_NAME}} ./cmd/deckhouse-harness
 
   test:
     desc: Run unit tests

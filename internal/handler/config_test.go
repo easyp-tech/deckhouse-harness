@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	pb "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1"
+	pb "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1"
 )
 
 func TestGetClusterConfiguration_Success(t *testing.T) {

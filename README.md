@@ -79,13 +79,13 @@ Authenticates to Kubernetes using in-cluster config (when running inside a Pod) 
 task generate
 
 # Build
-go build -o deckhouse-mcp ./cmd/deckhouse-mcp
+go build -o deckhouse-harness ./cmd/deckhouse-harness
 
 # Run tests
 task test
 
 # Run the server (connects to cluster via kubeconfig)
-./deckhouse-mcp
+./deckhouse-harness
 ```
 
 ## Connecting an MCP Client
@@ -102,7 +102,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 {
   "mcpServers": {
     "deckhouse": {
-      "command": "/path/to/deckhouse-mcp",
+      "command": "/path/to/deckhouse-harness",
       "env": {
         "KUBECONFIG": "/Users/you/.kube/config",
         "LOG_LEVEL": "INFO"
@@ -118,7 +118,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 {
   "mcpServers": {
     "deckhouse": {
-      "command": "/path/to/deckhouse-mcp"
+      "command": "/path/to/deckhouse-harness"
     }
   }
 }
@@ -127,7 +127,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 ### Manual (pipe JSON-RPC)
 
 ```bash
-echo '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./deckhouse-mcp
+echo '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | ./deckhouse-harness
 ```
 
 ## Environment Variables
@@ -151,7 +151,7 @@ echo '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":
 ```
 task generate        # easyp mod download + easyp generate
 task lint            # easyp lint
-task build           # go build -o deckhouse-mcp ./cmd/deckhouse-mcp
+task build           # go build -o deckhouse-harness ./cmd/deckhouse-harness
 task test            # go test ./...
 task integration     # full integration test cycle (requires Kind)
 ```
@@ -207,7 +207,7 @@ proto/deckhouse/v1/          # .proto files — single source of truth
 ├── nodes.proto              # NodesAPI (13 RPCs)
 ├── config.proto             # ConfigAPI (3 RPCs)
 └── sources.proto            # SourcesAPI (6 RPCs)
-cmd/deckhouse-mcp/main.go    # dual-mode entrypoint (stdio default, SSE via LISTEN_ADDR)
+cmd/deckhouse-harness/main.go    # dual-mode entrypoint (stdio default, SSE via LISTEN_ADDR)
 internal/handler/            # Tool handler implementations
 internal/k8s/client.go       # Kubernetes client interface
 tests/integration/           # Integration tests (Kind + Deckhouse CE)

@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-d8}"
 KUBE_CONTEXT="kind-${KIND_CLUSTER_NAME}"
-BINARY_PATH="$SCRIPT_DIR/deckhouse-mcp"
+BINARY_PATH="$SCRIPT_DIR/deckhouse-harness"
 
 info()  { echo "==> $*"; }
 error() { echo "ERROR: $*" >&2; exit 1; }
@@ -44,7 +44,7 @@ done
 
 # --- Build MCP server binary -------------------------------------------------
 info "Building MCP server binary..."
-go build -o "$BINARY_PATH" "$ROOT_DIR/cmd/deckhouse-mcp"
+go build -o "$BINARY_PATH" "$ROOT_DIR/cmd/deckhouse-harness"
 info "Binary built at $BINARY_PATH"
 
 # Export variables for test.sh (sourced via Taskfile env).

@@ -42,8 +42,8 @@ This folder contains documentation to help LLMs and developers quickly understan
 ## Project Structure
 
 ```
-deckhouse-mcp/
-├── cmd/deckhouse-mcp/    # Entry point — SSE server, wires 5 handler blocks
+deckhouse-harness/
+├── cmd/deckhouse-harness/    # Entry point — SSE server, wires 5 handler blocks
 ├── internal/
 │   ├── handler/          # MCP tool handler implementations (23 methods)
 │   └── k8s/              # Kubernetes client interface (17 methods) + implementation
@@ -62,7 +62,7 @@ deckhouse-mcp/
 task generate   # easyp mod download && easyp generate
 
 # Build
-task build      # go build ./cmd/deckhouse-mcp
+task build      # go build ./cmd/deckhouse-harness
 
 # Tests (70 unit tests, ~120s due to polling tests)
 task test       # go test ./...

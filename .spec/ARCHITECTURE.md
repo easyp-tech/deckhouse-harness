@@ -29,7 +29,7 @@ MCP server for managing Deckhouse Kubernetes Platform (CE) via AI agents. Proto-
 
 ## 2. Component Deep Dive
 
-### Transport Layer — `cmd/deckhouse-mcp/main.go`
+### Transport Layer — `cmd/deckhouse-harness/main.go`
 
 | File | Description |
 |------|-------------|
@@ -82,9 +82,9 @@ Two underlying clients:
 ## 3. Directory Structure
 
 ```
-deckhouse-mcp/
+deckhouse-harness/
 ├── cmd/
-│   └── deckhouse-mcp/
+│   └── deckhouse-harness/
 │       └── main.go             # Entrypoint
 ├── internal/
 │   ├── handler/                # Tool handler implementations (5 handler files)

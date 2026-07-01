@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	pb "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1"
+	pb "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1"
 )
 
 func TestListDeckhouseReleases_All(t *testing.T) {

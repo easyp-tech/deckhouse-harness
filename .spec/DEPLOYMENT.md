@@ -33,12 +33,12 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /deckhouse-mcp ./cmd/deckhouse-mcp
+RUN CGO_ENABLED=0 go build -o /deckhouse-harness ./cmd/deckhouse-harness
 
 FROM gcr.io/distroless/static-debian12
-COPY --from=builder /deckhouse-mcp /deckhouse-mcp
+COPY --from=builder /deckhouse-harness /deckhouse-harness
 USER nonroot:nonroot
-ENTRYPOINT ["/deckhouse-mcp"]
+ENTRYPOINT ["/deckhouse-harness"]
 ```
 
 - **Builder**: `golang:1.26` — dependencies cached in a separate layer
@@ -50,9 +50,9 @@ ENTRYPOINT ["/deckhouse-mcp"]
 ### Useful commands
 
 ```bash
-task docker:build           # docker build -t deckhouse-mcp:local .
-task docker:load            # kind load docker-image deckhouse-mcp:local --name d8
-docker run --rm deckhouse-mcp:local  # quick sanity check (will fail without K8s)
+task docker:build           # docker build -t deckhouse-harness:local .
+task docker:load            # kind load docker-image deckhouse-harness:local --name d8
+docker run --rm deckhouse-harness:local  # quick sanity check (will fail without K8s)
 ```
 
 ## 4. Kubernetes Manifests (`deploy/`)
@@ -63,8 +63,8 @@ docker run --rm deckhouse-mcp:local  # quick sanity check (will fail without K8s
 |-------|-------|
 | Namespace | `d8-system` |
 | Replicas | 1 |
-| ServiceAccount | `deckhouse-mcp` |
-| Image | `deckhouse-mcp:local` (override for production) |
+| ServiceAccount | `deckhouse-harness` |
+| Image | `deckhouse-harness:local` (override for production) |
 | Container port | `8080` (HTTP/SSE) |
 | CPU request/limit | `50m` / `200m` |
 | Memory request/limit | `64Mi` / `128Mi` |
@@ -75,11 +75,11 @@ docker run --rm deckhouse-mcp:local  # quick sanity check (will fail without K8s
 ### Service (`service.yaml`)
 
 ClusterIP service on port 8080. Internal DNS:  
-`deckhouse-mcp.d8-system.svc.cluster.local:8080`
+`deckhouse-harness.d8-system.svc.cluster.local:8080`
 
 ### RBAC (`rbac.yaml`)
 
-ServiceAccount `deckhouse-mcp` in `d8-system` with `ClusterRole`.
+ServiceAccount `deckhouse-harness` in `d8-system` with `ClusterRole`.
 
 **Current permissions (P0 + P1):**
 
@@ -123,14 +123,14 @@ The server is considered ready as soon as the TCP port is open (immediately afte
 
 ```bash
 # 1. Identify issue (logs)
-kubectl -n d8-system logs -l app=deckhouse-mcp --tail=100
+kubectl -n d8-system logs -l app=deckhouse-harness --tail=100
 
 # 2. Rollback deployment
-kubectl -n d8-system rollout undo deployment/deckhouse-mcp
+kubectl -n d8-system rollout undo deployment/deckhouse-harness
 
 # 3. Verify
-kubectl -n d8-system rollout status deployment/deckhouse-mcp
-kubectl -n d8-system get pods -l app=deckhouse-mcp
+kubectl -n d8-system rollout status deployment/deckhouse-harness
+kubectl -n d8-system get pods -l app=deckhouse-harness
 ```
 
 ## 8. Environment Variables

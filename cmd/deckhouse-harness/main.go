@@ -1,4 +1,4 @@
-// Command deckhouse-mcp runs the Deckhouse MCP server.
+// Command deckhouse-harness runs the Deckhouse MCP server.
 //
 // It supports two transports:
 //   - stdio (default): newline-delimited JSON on stdin/stdout. Used by local
@@ -28,20 +28,20 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/easyp-tech/deckhouse-mcp/internal/handler"
-	"github.com/easyp-tech/deckhouse-mcp/internal/k8s"
-	pb "github.com/easyp-tech/deckhouse-mcp/proto/deckhouse/v1"
+	"github.com/easyp-tech/deckhouse-harness/internal/handler"
+	"github.com/easyp-tech/deckhouse-harness/internal/k8s"
+	pb "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1"
 )
 
 const (
-	serverImplName        = "deckhouse-mcp"
+	serverImplName        = "deckhouse-harness"
 	serverImplVersion     = "0.3.0"
 	serverImplDescription = "Deckhouse Kubernetes Platform MCP server"
 )
 
 func main() {
 	cmd := &cli.Command{
-		Name:    "deckhouse-mcp",
+		Name:    "deckhouse-harness",
 		Version: serverImplVersion,
 		Usage:   "Deckhouse Kubernetes Platform MCP server",
 		Flags: []cli.Flag{
@@ -61,7 +61,7 @@ func main() {
 		},
 	}
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		log.Fatalf("deckhouse-mcp: %v", err)
+		log.Fatalf("deckhouse-harness: %v", err)
 	}
 }
 

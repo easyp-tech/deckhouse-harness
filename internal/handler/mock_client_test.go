@@ -6,7 +6,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/easyp-tech/deckhouse-mcp/internal/k8s"
+	"github.com/easyp-tech/deckhouse-harness/internal/k8s"
 )
 
 // Verify mockClient implements k8s.Client.

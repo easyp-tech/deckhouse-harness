@@ -1,5 +1,5 @@
-# Binary (compiled in repo root only — keep cmd/deckhouse-mcp source tree visible)
-/deckhouse-mcp
+# Binary (compiled in repo root only — keep cmd/deckhouse-harness source tree visible)
+/deckhouse-harness
 kind
 
 # IDE

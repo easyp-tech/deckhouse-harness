@@ -1,4 +1,4 @@
-module github.com/easyp-tech/deckhouse-mcp
+module github.com/easyp-tech/deckhouse-harness
 
 go 1.26.2
 

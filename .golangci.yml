@@ -111,7 +111,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/easyp-tech/deckhouse-mcp)
+        - prefix(github.com/easyp-tech/deckhouse-harness)
       custom-order: true
   exclusions:
     generated: lax

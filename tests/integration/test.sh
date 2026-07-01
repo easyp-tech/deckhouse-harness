@@ -10,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-d8}"
-BINARY_PATH="${BINARY_PATH:-$SCRIPT_DIR/deckhouse-mcp}"
+BINARY_PATH="${BINARY_PATH:-$SCRIPT_DIR/deckhouse-harness}"
 STDERR_LOG="${STDERR_LOG:-$SCRIPT_DIR/mcp-stderr.log}"
 
 if [ ! -f "$BINARY_PATH" ]; then
