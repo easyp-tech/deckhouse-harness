@@ -130,7 +130,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_WaitNodeReady_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_WaitNodeReady_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{},
+		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
 		Icons:            nil,
 		NewRequest:       func() *WaitNodeReadyRequest { return &WaitNodeReadyRequest{} },
 		NewResponse:      func() *WaitNodeReadyResponse { return &WaitNodeReadyResponse{} },
