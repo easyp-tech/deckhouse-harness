@@ -1,13 +1,14 @@
 # Deckhouse MCP Server
 
 MCP server for managing [Deckhouse Kubernetes Platform](https://deckhouse.ru/docs) (Community Edition).
-SSE (HTTP) transport, deployed as a Pod in namespace `d8-system`, authenticated via ServiceAccount + RBAC.
+**Dual transport** — stdio (default) or SSE over HTTP. Stdio: local newline-delimited JSON. SSE: `LISTEN_ADDR=:8080` or `-listen :8080` starts `mcp.NewSSEHandler` + HTTP server.
+Authenticates to Kubernetes via in-cluster config (inside a Pod) or `~/.kube/config` / `KUBECONFIG` (local).
 
 ## Tech Stack
 
 - **Go 1.26** — primary language
-- **Protobuf + protoc-gen-mcp v0.3.1** — proto-first MCP tool generation
-- **MCP Go SDK v1.5.0** (`github.com/modelcontextprotocol/go-sdk`) — MCP server, SSE transport
+- **Protobuf + protoc-gen-mcp v0.5.0** — proto-first MCP tool generation
+- **MCP Go SDK v1.6.0** (`github.com/modelcontextprotocol/go-sdk`) — MCP server (stdio + SSE/Streamable HTTP transports)
 - **easyp** — linting, code generation, proto dependency management
 - **Kubernetes client-go v0.35.3** — typed client for core resources, dynamic client for CRDs
 - **Deckhouse CRDs** — `NodeGroup` (v1), `StaticInstance` (v1alpha2), `SSHCredentials` (v1alpha2), `ModuleConfig` (v1alpha1), `DeckhouseRelease` (v1alpha1)
@@ -28,26 +29,11 @@ proto/                           # .proto files — single source of truth for a
 │   └── sources.proto            # Block F: SourcesAPI (stub, no RPCs yet)
 cmd/
 └── deckhouse-mcp/
-    └── main.go                  # SSE HTTP server, in-cluster K8s config, graceful shutdown
+    └── main.go                  # Dual-mode (stdio default + SSE via LISTEN_ADDR/-listen)
 internal/
 ├── handler/                     # ToolHandler interface implementations
-│   ├── diagnostics.go           # DiagnosticsHandler (5 methods + helpers)
-│   ├── modules.go               # ModulesHandler (1 method)
-│   ├── releases.go              # ReleasesHandler (1 method)
-│   ├── nodes.go                 # NodesHandler (3 methods, incl. composite AddWorkerNode)
-│   ├── mock_client_test.go      # Mock k8s.Client for unit tests
-│   ├── diagnostics_test.go      # 19 tests
-│   ├── modules_test.go          # 3 tests
-│   ├── releases_test.go         # 2 tests
-│   ├── nodes_test.go            # 11 tests
-│   └── errors_test.go           # 3 tests
-└── k8s/
+    └── k8s/
     └── client.go                # Client interface + typed/dynamic implementation
-deploy/                          # Plain Kubernetes manifests (primary deployment method)
-├── deployment.yaml
-├── rbac.yaml
-└── service.yaml
-Dockerfile                       # Multi-stage: golang:1.26 → distroless
 Taskfile.yml                     # go-task: generate, lint, build, test, docker
 easyp.yaml                       # Proto deps, lint rules, codegen plugins
 ```
@@ -98,7 +84,7 @@ easyp lint
 easyp generate
 
 # Build
-go build ./cmd/deckhouse-mcp
+go build -o deckhouse-mcp ./cmd/deckhouse-mcp
 
 # Test (38 tests, ~60s due to polling tests)
 go test ./...
@@ -106,10 +92,8 @@ go test ./...
 # All-in-one via Taskfile (go-task)
 task generate        # easyp mod download && easyp generate
 task lint            # easyp lint
-task build           # go build ./cmd/deckhouse-mcp
+task build           # go build -o deckhouse-mcp ./cmd/deckhouse-mcp
 task test            # go test ./...
-task docker:build    # docker build -t deckhouse-mcp:local .
-task docker:load     # kind load docker-image into Kind
 task integration     # setup → test → teardown
 ```
 
@@ -167,20 +151,23 @@ New methods should be added to this interface when implementing P1+ handlers.
 
 ### Server Entrypoint (`cmd/deckhouse-mcp/main.go`)
 
-- `rest.InClusterConfig()` for K8s auth
-- `mcp.NewServer()` + `mcp.NewSSEHandler()` for HTTP/SSE transport
-- `signal.NotifyContext(SIGINT, SIGTERM)` + `http.Server.Shutdown()` for graceful shutdown
-- Default listen address: `:8080` (override via `LISTEN_ADDR` env)
+- `loadKubeConfig()` — tries `rest.InClusterConfig()` first, falls back to `clientcmd` (`KUBECONFIG` env or `~/.kube/config`)
+- `configureLogger()` — builds `*slog.Logger` from `LOG_LEVEL` / `LOG_OUTPUT` / `LOG_FILE` env vars; logs never go to stdout (reserved for MCP protocol); default: stderr + INFO
+- CLI: `urfave/cli/v3` (see `main()`): `--listen` / `--transport` flags + `Sources: cli.EnvVars("LISTEN_ADDR")` / `cli.EnvVars("TRANSPORT", "MCP_TRANSPORT")`.
+- Transport selection (now inside Action → `run(c *cli.Command)`): default stdio; presence of listen address or explicit transport selects SSE using `mcp.NewSSEHandler` + `http.Server` with graceful `Shutdown`.
+- `server.Run(ctx, &mcp.StdioTransport{})` for stdio mode.
+- `serveSSE(...)` for HTTP/SSE mode (reuses one `*mcp.Server` for N sessions).
+- `signal.NotifyContext(SIGINT, SIGTERM)` for graceful shutdown via context cancellation
 - Handlers registered via generated `pb.Register{Service}Tools(server, handler)`
 
-### RBAC (MVP — P0 handlers only)
+### RBAC
 
-ServiceAccount `deckhouse-mcp` in `d8-system`. Current least-privilege permissions:
+When running inside a Kubernetes Pod (in-cluster config), the server needs a ServiceAccount with permissions for the resources it manages. Create RBAC manifests manually if deploying in-cluster. The required permissions are:
 
 - **read**: `nodes`, `pods` (core); `nodegroups`, `staticinstances`, `moduleconfigs`, `deckhouserelease` (deckhouse.io CRDs)
 - **write**: `staticinstances`, `sshcredentials` (create only)
 
-When implementing P1+ handlers, expand RBAC in `deploy/rbac.yaml`:
+When implementing P1+ handlers, expand RBAC if deploying in-cluster:
 - **P1 additions**: `events`, `pods/log` (core read); `moduleconfigs` (update); `deckhouserelease` (update for approve)
 - **P2 additions**: `pods/eviction` (for drain); `nodegroups`, `nodegroupconfigurations` (write); `modulesources`, `moduleupdatepolicies` (read+write)
 

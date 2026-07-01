@@ -7,7 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — P3 — Edge Cases
+## [Unreleased] — dual transport (stdio + SSE)
+
+### Added
+
+- **Dual-mode server.** The binary now supports both transports:
+  - **stdio** (default): `server.Run(ctx, &mcp.StdioTransport{})` — for local clients (Claude Desktop, etc.).
+  - **SSE** (HTTP): activated by `LISTEN_ADDR` env var, `-listen :8080` flag, or `-transport sse`. Uses `mcp.NewSSEHandler` + `http.Server` with graceful shutdown.
+- CLI flags: `-listen <addr>` and `-transport (stdio|sse)`.
+- Switched to `urfave/cli/v3` for flag + environment variable handling (`Sources: cli.EnvVars(...)`). `--help` now annotates env vars. Manual fallback code removed.
+- `LISTEN_ADDR` (and new `TRANSPORT`/`MCP_TRANSPORT`) continue to work; CLI flag wins.
+- `serveSSE()` helper that reuses a single `*mcp.Server` for multiple concurrent SSE sessions.
+
+### Changed
+
+- `main.go` now decides the transport at startup instead of hard-coding stdio.
+- Updated docs (README, AGENTS.md) to describe dual transport.
+- `go.mod` already uses MCP SDK v1.6.0 (which includes maintained SSE support).
+
+### Notes
+
+- Stdio remains the default so existing local client configs are unaffected.
+- When running in SSE mode, multiple MCP clients can connect simultaneously.
+- **Docker image and Kubernetes manifests removed.** `Dockerfile` and `deploy/` (deployment.yaml, service.yaml, rbac.yaml) deleted. The server is a local CLI tool.
+- **K8s auth: kubeconfig fallback.** `loadKubeConfig()` tries `rest.InClusterConfig()` first (in-cluster), then falls back to `clientcmd` (`KUBECONFIG` env or `~/.kube/config`).
+- **Logging via env.** `LOG_LEVEL` (DEBUG/INFO/WARN/ERROR), `LOG_OUTPUT` (stderr/file/discard), `LOG_FILE` (path). Logs never go to stdout (reserved for MCP protocol).
+
+### Infrastructure
+
+- `protoc-gen-mcp` upgraded v0.3.1 → v0.5.0 (`easyp.yaml`, `go.mod`, `easyp.lock`)
+- `cmd/deckhouse-mcp/main.go` rewritten: `loadKubeConfig()`, `configureLogger()`, `server.Run(ctx, &mcp.StdioTransport{})`
+- `Taskfile.yml`: `docker:build` and `docker:load` tasks removed; `build` now outputs `./deckhouse-mcp`
+- `tests/integration/setup.sh`: no Docker build/load, no kubectl apply deploy, no port-forward; builds local binary
+- `tests/integration/test.sh`: SSE/curl helpers replaced with FIFO-based stdio transport (`mcp_connect`/`mcp_disconnect`/`mcp_send`/`mcp_recv`); all 58 test cases unchanged
+- `tests/integration/teardown.sh`: port-forward cleanup removed; binary cleanup added
+- `README.md` and `AGENTS.md` updated for stdio transport and env-based logging
+
+---
+
+## [0.2.0-p3] — P3 — Edge Cases
 
 4 new MCP handlers — module maintenance toggle, node group bootstrap scripts, module source cleanup, module release listing. Brings the tool catalog from 39 (P0+P1+P2) to **43 total**.
 
