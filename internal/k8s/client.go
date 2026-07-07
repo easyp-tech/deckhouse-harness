@@ -299,6 +299,18 @@ func (c *client) GetPodLogs(
 	tail *int64,
 	since *string,
 ) (string, error) {
+	// Honor the documented contract: when no container is given, default to the
+	// pod's first container. The K8s API errors ("a container name must be
+	// specified") for multi-container pods otherwise — and Deckhouse pods are
+	// frequently multi-container.
+	if container == "" {
+		name, err := c.defaultContainer(ctx, namespace, pod)
+		if err != nil {
+			return "", err
+		}
+		container = name
+	}
+
 	opts := &corev1.PodLogOptions{Container: container}
 	if tail != nil {
 		opts.TailLines = tail
@@ -331,6 +343,21 @@ func (c *client) GetPodLogs(
 	}
 
 	return buf.String(), nil
+}
+
+// defaultContainer returns the name of the pod's first container, used when the
+// caller does not specify one. Returns "" if the pod has no containers.
+func (c *client) defaultContainer(ctx context.Context, namespace, pod string) (string, error) {
+	p, err := c.typed.CoreV1().Pods(namespace).Get(ctx, pod, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("getting pod %q to resolve default container: %w", pod, err)
+	}
+
+	if len(p.Spec.Containers) == 0 {
+		return "", nil
+	}
+
+	return p.Spec.Containers[0].Name, nil
 }
 
 // DeletePod deletes a single pod by namespace and name.
