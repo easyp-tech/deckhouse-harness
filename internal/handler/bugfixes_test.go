@@ -113,3 +113,39 @@ func TestListUnhealthyPods_CrashLoopBackOff(t *testing.T) {
 		t.Errorf("expected restartCount 5, got %d", p.GetRestartCount())
 	}
 }
+
+// GetClusterStatus.unhealthyPodsCount must count pods across ALL namespaces
+// (proto contract) and use the same container-aware check as ListUnhealthyPods,
+// so an ImagePullBackOff pod outside d8-system is counted.
+func TestGetClusterStatus_UnhealthyCountAllNamespaces(t *testing.T) {
+	var listedNS string
+	mc := &mockClient{
+		listPodsFunc: func(_ context.Context, ns string) ([]corev1.Pod, error) {
+			listedNS = ns
+			return []corev1.Pod{
+				// healthy running pod in some app namespace
+				{ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "app"}, Status: corev1.PodStatus{
+					Phase:             corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}},
+				}},
+				// broken pod in a NON-d8-system namespace, phase Pending, ImagePullBackOff
+				{ObjectMeta: metav1.ObjectMeta{Name: "mongo-broken", Namespace: "e2e-db"}, Status: corev1.PodStatus{
+					Phase:             corev1.PodPending,
+					ContainerStatuses: []corev1.ContainerStatus{{State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"}}}},
+				}},
+			}, nil
+		},
+	}
+	h := NewDiagnosticsHandler(mc)
+
+	resp, err := h.GetClusterStatus(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listedNS != "" {
+		t.Errorf("expected all-namespaces scan (\"\"), got namespace %q", listedNS)
+	}
+	if resp.GetUnhealthyPodsCount() != 1 {
+		t.Errorf("expected unhealthyPodsCount 1, got %d", resp.GetUnhealthyPodsCount())
+	}
+}

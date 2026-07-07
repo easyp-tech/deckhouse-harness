@@ -333,13 +333,6 @@ func isNodeReady(node *corev1.Node) bool {
 	return false
 }
 
-// Helper: determine if a pod is healthy.
-func isPodHealthy(pod *corev1.Pod) bool {
-	phase := pod.Status.Phase
-
-	return phase == corev1.PodRunning || phase == corev1.PodSucceeded
-}
-
 // Helper: convert Node to NodeInfo proto.
 func nodeToInfo(node *corev1.Node) *pb.NodeInfo {
 	status := "NotReady"
@@ -855,15 +848,19 @@ func (h *DiagnosticsHandler) collectReleaseInfo(ctx context.Context) ([]*pb.Pend
 }
 
 func (h *DiagnosticsHandler) countUnhealthyPods(ctx context.Context) (int32, error) {
-	pods, err := h.client.ListPods(ctx, "d8-system")
+	// The proto contract is "across all namespaces" — pass "" (all namespaces),
+	// not a single namespace.
+	pods, err := h.client.ListPods(ctx, "")
 	if err != nil {
 		return 0, fmt.Errorf("listing pods: %w", err)
 	}
 
 	var count int32
 
-	for _, pod := range pods {
-		if !isPodHealthy(&pod) {
+	// Reuse the same container-aware unhealthy check as ListUnhealthyPods so the
+	// two tools agree (a CrashLoopBackOff/ImagePullBackOff pod counts here too).
+	for i := range pods {
+		if toUnhealthyPodInfo(&pods[i], false) != nil {
 			count++
 		}
 	}
