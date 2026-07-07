@@ -5,7 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	pb "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1"
@@ -58,5 +60,56 @@ func TestListModuleConfigs_VersionFromInt(t *testing.T) {
 	}
 	if got := resp.GetModules()[0].GetVersion(); got != "2" {
 		t.Errorf("expected version %q, got %q", "2", got)
+	}
+}
+
+// A CrashLoopBackOff pod has phase=Running (a container is waiting), so
+// ListUnhealthyPods must inspect container state — not just pod phase — or it
+// misses the most common unhealthy case.
+func TestListUnhealthyPods_CrashLoopBackOff(t *testing.T) {
+	crashing := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "crasher", Namespace: "e2e", CreationTimestamp: metav1.Now()},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning, // <-- Running, yet the container is crash-looping
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name:         "app",
+				RestartCount: 5,
+				State: corev1.ContainerState{
+					Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"},
+				},
+			}},
+		},
+	}
+	healthy := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "e2e", CreationTimestamp: metav1.Now()},
+		Status: corev1.PodStatus{
+			Phase:             corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{{Name: "nginx", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}},
+		},
+	}
+
+	mc := &mockClient{
+		listPodsFunc: func(_ context.Context, _ string) ([]corev1.Pod, error) {
+			return []corev1.Pod{crashing, healthy}, nil
+		},
+	}
+	h := NewDiagnosticsHandler(mc)
+
+	resp, err := h.ListUnhealthyPods(context.Background(), &pb.ListUnhealthyPodsRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.GetPods()) != 1 {
+		t.Fatalf("expected only the crashing pod, got %d", len(resp.GetPods()))
+	}
+	p := resp.GetPods()[0]
+	if p.GetName() != "crasher" {
+		t.Errorf("expected crasher, got %q", p.GetName())
+	}
+	if p.GetStatus() != "CrashLoopBackOff" {
+		t.Errorf("expected status CrashLoopBackOff, got %q", p.GetStatus())
+	}
+	if p.GetRestartCount() != 5 {
+		t.Errorf("expected restartCount 5, got %d", p.GetRestartCount())
 	}
 }

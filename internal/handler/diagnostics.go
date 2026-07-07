@@ -249,13 +249,24 @@ func (h *DiagnosticsHandler) ListUnhealthyPods(
 	return &pb.ListUnhealthyPodsResponse{Pods: result}, nil
 }
 
-func toUnhealthyPodInfo(pod *corev1.Pod, excludeCompleted bool) *pb.UnhealthyPodInfo {
+func toUnhealthyPodInfo(pod *corev1.Pod, _ bool) *pb.UnhealthyPodInfo {
 	phase := string(pod.Status.Phase)
-	if phase == string(corev1.PodRunning) || phase == string(corev1.PodSucceeded) {
+
+	// Succeeded/Completed is a healthy terminal state; always skip it. (The
+	// excludeCompleted request flag is retained for API compatibility but has no
+	// additional effect: completed pods are never reported as unhealthy.)
+	if phase == string(corev1.PodSucceeded) {
 		return nil
 	}
 
-	if excludeCompleted && phase == string(corev1.PodSucceeded) {
+	// A pod can be phase=Running while a container is stuck in a bad state
+	// (CrashLoopBackOff, ImagePullBackOff, ErrImagePull, CreateContainerError,
+	// or a non-zero termination). Inspect container states so these are not
+	// missed — this is the most common "unhealthy" case in practice.
+	containerReason := containerProblemReason(pod)
+
+	// A Running pod with no container-level problem is healthy → skip.
+	if phase == string(corev1.PodRunning) && containerReason == "" {
 		return nil
 	}
 
@@ -264,7 +275,14 @@ func toUnhealthyPodInfo(pod *corev1.Pod, excludeCompleted bool) *pb.UnhealthyPod
 		restartCount += cs.RestartCount
 	}
 
-	reason := phase
+	// Prefer the container problem reason (e.g. CrashLoopBackOff) over the bare
+	// pod phase for a more actionable status.
+	status := phase
+	if containerReason != "" {
+		status = containerReason
+	}
+
+	reason := status
 	if pod.Status.Reason != "" {
 		reason = pod.Status.Reason
 	}
@@ -274,11 +292,34 @@ func toUnhealthyPodInfo(pod *corev1.Pod, excludeCompleted bool) *pb.UnhealthyPod
 	return &pb.UnhealthyPodInfo{
 		Name:         pod.Name,
 		Namespace:    pod.Namespace,
-		Status:       phase,
+		Status:       status,
 		Reason:       reason,
 		RestartCount: restartCount,
 		Age:          age,
 	}
+}
+
+// containerProblemReason returns a non-empty reason when any container in the
+// pod is in a problematic state: waiting with a reason (CrashLoopBackOff,
+// ImagePullBackOff, ErrImagePull, CreateContainerError, …) or terminated with a
+// non-zero exit code. Returns "" when all containers look healthy.
+func containerProblemReason(pod *corev1.Pod) string {
+	statuses := append([]corev1.ContainerStatus{}, pod.Status.InitContainerStatuses...)
+	statuses = append(statuses, pod.Status.ContainerStatuses...)
+
+	for _, cs := range statuses {
+		if w := cs.State.Waiting; w != nil && w.Reason != "" && w.Reason != "ContainerCreating" && w.Reason != "PodInitializing" {
+			return w.Reason
+		}
+		if t := cs.State.Terminated; t != nil && t.ExitCode != 0 {
+			if t.Reason != "" {
+				return t.Reason
+			}
+			return "Error"
+		}
+	}
+
+	return ""
 }
 
 // Helper: determine if a node is Ready.
