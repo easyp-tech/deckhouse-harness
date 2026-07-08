@@ -1,16 +1,17 @@
 # Deckhouse Harness
 
 MCP server for managing [Deckhouse Kubernetes Platform](https://deckhouse.ru/docs) (Community Edition).
-**Dual transport** — stdio (default) or SSE over HTTP. Stdio: local newline-delimited JSON. SSE: `LISTEN_ADDR=:8080` or `-listen :8080` starts `mcp.NewSSEHandler` + HTTP server.
+**Transport: stdio only** — newline-delimited JSON-RPC on stdin/stdout (`mcpruntime.ServeStdio`). A client launches the binary as a subprocess. No HTTP/SSE listener.
+Exposes three MCP primitives: **Tools** (43), **Resources** (read-only context by URI), **Prompts** (diagnostic playbooks).
 Authenticates to Kubernetes via in-cluster config (inside a Pod) or `~/.kube/config` / `KUBECONFIG` (local).
 
-Binary and module name: `deckhouse-harness` (project was renamed from `deckhouse-mcp`). Server version: `0.3.1`.
+Binary and module name: `deckhouse-harness` (project was renamed from `deckhouse-mcp`). Server version: `0.4.0`.
 
 ## Tech Stack
 
 - **Go 1.26** — primary language
-- **Protobuf + protoc-gen-mcp v0.5.0** — proto-first MCP tool generation
-- **MCP Go SDK v1.6.0** (`github.com/modelcontextprotocol/go-sdk`) — MCP server (stdio + SSE/Streamable HTTP transports)
+- **Protobuf + protoc-gen-mcp v0.6.0** — proto-first generation of MCP Tools, Resources, and Prompts
+- **`protoc-gen-mcp/mcpruntime`** — self-contained MCP server runtime (stdio transport; `NewServer`/`ServeStdio`/`HandleRaw`). No `modelcontextprotocol/go-sdk` dependency.
 - **easyp** — linting, code generation, proto dependency management
 - **Kubernetes client-go v0.35.3** — typed client for core resources, dynamic client for CRDs
 - **Deckhouse CRDs** — `NodeGroup` (v1), `StaticInstance` (v1alpha2), `SSHCredentials` (v1alpha2), `ModuleConfig` (v1alpha1), `DeckhouseRelease` (v1alpha1)
@@ -28,17 +29,17 @@ proto/                           # .proto files — single source of truth for a
 │   ├── releases.proto           # Block C: ReleasesAPI (3 RPCs)
 │   ├── nodes.proto              # Block D: NodesAPI (13 RPCs, write)
 │   ├── config.proto             # Block E: ConfigAPI (3 RPCs)
-│   └── sources.proto            # Block F: SourcesAPI (6 RPCs)
+│   ├── sources.proto            # Block F: SourcesAPI (6 RPCs)
+│   ├── resources.proto          # MCP Resources (read-only context by URI)
+│   └── prompts.proto            # MCP Prompts (diagnostic playbooks)
 cmd/
 └── deckhouse-harness/
-    └── main.go                  # Dual-mode (stdio default + SSE via TRANSPORT=sse / LISTEN_ADDR / -listen)
+    └── main.go                  # stdio entrypoint (mcpruntime.NewServer + ServeStdio)
 internal/
-├── handler/                     # ToolHandler interface implementations
+├── handler/                     # Tool + resource + prompt handler implementations
     └── k8s/
     └── client.go                # Client interface + typed/dynamic implementation
-deploy/                          # Kubernetes manifests for SSE in-cluster deployment
-├── deployment.yaml              # Deployment in d8-system, TRANSPORT=sse, containerPort 8080
-├── service.yaml                 # ClusterIP Service, port 8080
+deploy/                          # ServiceAccount + RBAC for in-cluster runs (no HTTP service)
 └── rbac.yaml                    # ServiceAccount + ClusterRole + ClusterRoleBinding (all 43 tools)
 Dockerfile                       # Multi-stage: golang:1.26 → gcr.io/distroless/static-debian12
 Taskfile.yml                     # go-task: generate, lint, build, test, docker:build, docker:load
@@ -80,7 +81,7 @@ easyp generate
 # Build
 go build -o deckhouse-harness ./cmd/deckhouse-harness
 
-# Test (134 tests, ~3 min due to real-time polling tests)
+# Test (156 tests, ~3 min due to real-time polling tests)
 go test ./...
 
 # All-in-one via Taskfile (go-task)
@@ -104,7 +105,12 @@ task integration     # setup → test → teardown
 - Required fields — singular without `optional`; filters — `optional`
 - Enum zero-value `*_UNSPECIFIED = 0` hidden via `(mcp.options.v1.enum_value) = { hidden: true }`
 - Generated interfaces: `DiagnosticsAPIToolHandler`, `ModulesAPIToolHandler`, `ReleasesAPIToolHandler`, `NodesAPIToolHandler`
-- Registration: `pb.Register{Service}Tools(server *mcp.Server, impl handler, opts ...mcpruntime.RegisterOption) error`
+- Registration: `pb.Register{Service}Tools(server *mcpruntime.Server, impl handler, opts ...mcpruntime.RegisterOption) error`
+
+### Resources & Prompts (proto-first)
+
+- **Resources** — a message with `option (mcp.options.v1.resource) = { uri | uri_template, mime_type, ... }`. Codegen emits a per-file handler interface (`Read{Msg}` for static; `List{Msg}s` + `Read{Msg}(ctx, {param})` for templates) and `RegisterFile_..._resources_protoResources(ctx, server, impl)`. Message fields are the ProtoJSON body. Declared in `resources.proto`; implemented in `internal/handler/resources.go` (delegates to the tool handlers — no duplicated logic). Templated `List` runs once at registration (startup snapshot); reads are live.
+- **Prompts** — a message with `option (mcp.options.v1.prompt) = { name, title, description }`; each message field becomes a prompt argument (required unless `optional`). Codegen emits `{Msg}(ctx, req *Msg) ([]mcpruntime.PromptMessage, error)` and `RegisterFile_..._prompts_protoPrompts(server, impl)`. Declared in `prompts.proto`; implemented in `internal/handler/prompts.go` (returns a user `TextContent` playbook).
 
 ### Go
 
@@ -159,20 +165,16 @@ Defined as package-level vars in `internal/k8s/client.go`:
 
 ### Server Entrypoint (`cmd/deckhouse-harness/main.go`)
 
-- `loadKubeConfig()` — tries `rest.InClusterConfig()` first, falls back to `clientcmd` (`KUBECONFIG` env or `~/.kube/config`). Works for both modes: stdio local (in-cluster fails → kubeconfig) and SSE in-cluster (in-cluster succeeds).
+- `loadKubeConfig()` — tries `rest.InClusterConfig()` first, falls back to `clientcmd` (`KUBECONFIG` env or `~/.kube/config`): local runs fall through to kubeconfig; in-cluster runs succeed on the first path.
 - `configureLogger()` — builds `*slog.Logger` from `LOG_LEVEL` / `LOG_OUTPUT` / `LOG_FILE` env vars; logs never go to stdout (reserved for MCP protocol); default: stderr + INFO
-- CLI: `urfave/cli/v3` (see `main()`): `--listen` / `--transport` flags + `Sources: cli.EnvVars("LISTEN_ADDR")` / `cli.EnvVars("TRANSPORT", "MCP_TRANSPORT")`.
-- Transport selection (inside Action → `run(c *cli.Command)`):
-  - `TRANSPORT=stdio` (default, including unset): `server.Run(ctx, &mcp.StdioTransport{})`
-  - `TRANSPORT=sse` (or `LISTEN_ADDR` set): `serveSSE(...)` using `mcp.NewSSEHandler` + `http.Server` with graceful `Shutdown` (10s timeout, `ReadHeaderTimeout` 5s)
-- `serveSSE(...)` reuses one `*mcp.Server` for N concurrent SSE sessions.
-- `signal.NotifyContext(SIGINT, SIGTERM)` for graceful shutdown via context cancellation
-- Constants: `defaultListenAddr=":8080"`, `shutdownTimeout=10s`, `readHeaderTimeout=5s`
-- Handlers registered via generated `pb.Register{Service}Tools(server, handler)`
+- CLI: `urfave/cli/v3` (see `main()`): no transport flags — the only behavior is stdio.
+- `newServer(ctx, client)` — `mcpruntime.NewServer(name, version)`, then registers the 6 tool services, the resources, and the prompts.
+- Serve: `mcpruntime.ServeStdio(ctx, server)` — blocks until stdin closes or the context is cancelled.
+- `signal.NotifyContext(SIGINT, SIGTERM)` for graceful shutdown via context cancellation.
 
 ### RBAC
 
-When `TRANSPORT=sse` and running inside a Kubernetes Pod (in-cluster config), the server needs a ServiceAccount with permissions for the resources it manages. The full RBAC manifests are in `deploy/rbac.yaml` (ServiceAccount + ClusterRole + ClusterRoleBinding). The required permissions cover all 43 tools:
+For in-cluster runs (in-cluster config), the server needs a ServiceAccount with permissions for the resources it manages. The full RBAC manifests are in `deploy/rbac.yaml` (ServiceAccount + ClusterRole + ClusterRoleBinding). The required permissions cover all 43 tools:
 
 - **read**: `nodes`, `pods`, `events` (core); `nodegroups`, `staticinstances`, `moduleconfigs`, `deckhousereleases`, `modules`, `modulesources`, `moduleupdatepolicies`, `modulereleases` (deckhouse.io CRDs)
 - **write**: `staticinstances`, `sshcredentials` (create); `nodes` (update/patch for cordon/uncordon); `pods/eviction` (create for drain); `moduleconfigs` (update/patch); `deckhousereleases` (patch for approve); `nodegroups` (create/delete); `modulesources`, `moduleupdatepolicies` (create); `nodegroupconfigurations` (create); `secrets/d8-cluster-configuration` (get/update)
@@ -188,7 +190,7 @@ When `TRANSPORT=sse` and running inside a Kubernetes Pod (in-cluster config), th
 
 ### Testing
 
-- 134 unit tests across the `*_test.go` files in `internal/handler/`
+- 156 unit tests across the `*_test.go` files in `internal/handler/`
 - Mock `k8s.Client` with function fields in `mock_client_test.go` (no external mock library)
 - Polling handlers (`AddWorkerNode`, `WaitNodeReady`, `DrainNode`) use the real clock (`pollInterval = 30s`), so their tests genuinely sleep
 - Total test time: ~3 min (`go test ./...`)
@@ -279,7 +281,6 @@ Build MCP servers from protobuf definitions using `protoc-gen-mcp` and EasyP.
 
 - [Deckhouse docs](https://deckhouse.ru/docs)
 - [Deckhouse GitHub](https://github.com/deckhouse/deckhouse)
-- [protoc-gen-mcp](https://github.com/easyp-tech/protoc-gen-mcp)
-- [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
+- [protoc-gen-mcp](https://github.com/easyp-tech/protoc-gen-mcp) — codegen + `mcpruntime` (Tools, Resources, Prompts)
 - [MCP Spec](https://spec.modelcontextprotocol.io)
 - [SDD Artifacts](.spec/features/deckhouse-harness-mvp/) — explore, requirements, design, task-plan, implementation, review

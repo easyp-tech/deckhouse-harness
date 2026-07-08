@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	mcpruntime "github.com/easyp-tech/protoc-gen-mcp/mcpruntime"
-	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	proto "google.golang.org/protobuf/proto"
 )
 
@@ -29,7 +28,7 @@ type NodesAPIToolHandler interface {
 }
 
 // RegisterNodesAPITools registers generated MCP tools for NodesAPI.
-func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
+func RegisterNodesAPITools(server *mcpruntime.Server, impl NodesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
 	if impl == nil {
 		return errors.New("RegisterNodesAPITools: impl is nil")
 	}
@@ -40,7 +39,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_AddWorkerNode_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_AddWorkerNode_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *AddWorkerNodeRequest { return &AddWorkerNodeRequest{} },
 		NewResponse:      func() *AddWorkerNodeResponse { return &AddWorkerNodeResponse{} },
@@ -55,7 +54,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_CreateSSHCredentials_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_CreateSSHCredentials_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *CreateSSHCredentialsRequest { return &CreateSSHCredentialsRequest{} },
 		NewResponse:      func() *CreateSSHCredentialsResponse { return &CreateSSHCredentialsResponse{} },
@@ -70,7 +69,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_CreateStaticInstance_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_CreateStaticInstance_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *CreateStaticInstanceRequest { return &CreateStaticInstanceRequest{} },
 		NewResponse:      func() *CreateStaticInstanceResponse { return &CreateStaticInstanceResponse{} },
@@ -85,7 +84,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_DeleteStaticInstance_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_DeleteStaticInstance_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *DeleteStaticInstanceRequest { return &DeleteStaticInstanceRequest{} },
 		NewResponse:      func() *DeleteStaticInstanceResponse { return &DeleteStaticInstanceResponse{} },
@@ -100,7 +99,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_RemoveNode_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_RemoveNode_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *RemoveNodeRequest { return &RemoveNodeRequest{} },
 		NewResponse:      func() *RemoveNodeResponse { return &RemoveNodeResponse{} },
@@ -115,7 +114,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_CreateNodeGroup_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_CreateNodeGroup_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{},
+		Annotations:      &mcpruntime.ToolAnnotations{},
 		Icons:            nil,
 		NewRequest:       func() *CreateNodeGroupRequest { return &CreateNodeGroupRequest{} },
 		NewResponse:      func() *CreateNodeGroupResponse { return &CreateNodeGroupResponse{} },
@@ -130,7 +129,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_WaitNodeReady_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_WaitNodeReady_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *WaitNodeReadyRequest { return &WaitNodeReadyRequest{} },
 		NewResponse:      func() *WaitNodeReadyResponse { return &WaitNodeReadyResponse{} },
@@ -145,7 +144,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_CordonNode_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_CordonNode_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{IdempotentHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{IdempotentHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *CordonNodeRequest { return &CordonNodeRequest{} },
 		NewResponse:      func() *CordonNodeResponse { return &CordonNodeResponse{} },
@@ -160,7 +159,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_UncordonNode_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_UncordonNode_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{IdempotentHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{IdempotentHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *UncordonNodeRequest { return &UncordonNodeRequest{} },
 		NewResponse:      func() *UncordonNodeResponse { return &UncordonNodeResponse{} },
@@ -175,7 +174,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_DrainNode_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_DrainNode_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *DrainNodeRequest { return &DrainNodeRequest{} },
 		NewResponse:      func() *DrainNodeResponse { return &DrainNodeResponse{} },
@@ -190,7 +189,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_DeleteSSHCredentials_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_DeleteSSHCredentials_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *DeleteSSHCredentialsRequest { return &DeleteSSHCredentialsRequest{} },
 		NewResponse:      func() *DeleteSSHCredentialsResponse { return &DeleteSSHCredentialsResponse{} },
@@ -205,7 +204,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_DeleteNodeGroup_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_DeleteNodeGroup_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *DeleteNodeGroupRequest { return &DeleteNodeGroupRequest{} },
 		NewResponse:      func() *DeleteNodeGroupResponse { return &DeleteNodeGroupResponse{} },
@@ -220,7 +219,7 @@ func RegisterNodesAPITools(server *mcp.Server, impl NodesAPIToolHandler, opts ..
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  NodesAPI_CreateNodeGroupConfiguration_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: NodesAPI_CreateNodeGroupConfiguration_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{},
+		Annotations:      &mcpruntime.ToolAnnotations{},
 		Icons:            nil,
 		NewRequest:       func() *CreateNodeGroupConfigurationRequest { return &CreateNodeGroupConfigurationRequest{} },
 		NewResponse:      func() *CreateNodeGroupConfigurationResponse { return &CreateNodeGroupConfigurationResponse{} },

@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1;deckhousev1";
+
+import "mcp/options/v1/options.proto";
+import "proto/deckhouse/v1/diagnostics.proto";
+import "proto/deckhouse/v1/config.proto";
+import "proto/deckhouse/v1/modules.proto";
+import "proto/deckhouse/v1/releases.proto";
+
+// This file declares MCP Resources (read-only cluster context addressable by
+// URI). Each message annotated with (mcp.options.v1.resource) becomes a
+// resource; message fields form the ProtoJSON body returned on read. Resources
+// are additive — they mirror a curated subset of the read-only tools for clients
+// that consume ambient context by URI. The backing logic is reused from the
+// existing tool handlers (no duplication).
+//
+// Static resources are read live on every request. Templated resources are read
+// live per URI, while their instance enumeration (resources/list) is a snapshot
+// taken once at server startup.
+
+// ---- Static resources (singletons, live read) ----
+
+// ClusterStatus is the aggregated cluster health snapshot.
+message ClusterStatus {
+  option (mcp.options.v1.resource) = {
+    uri: "deckhouse://cluster/status"
+    name: "cluster_status"
+    description: "Aggregated cluster status: node readiness counts, per-NodeGroup health, errored ModuleConfigs, pending DeckhouseReleases, total unhealthy pod count, and the deployed Deckhouse version."
+    mime_type: "application/json"
+  };
+
+  GetClusterStatusResponse status = 1;
+}
+
+// ClusterConfiguration exposes the current ClusterConfiguration.
+message ClusterConfiguration {
+  option (mcp.options.v1.resource) = {
+    uri: "deckhouse://cluster/configuration"
+    name: "cluster_configuration"
+    description: "Current Deckhouse ClusterConfiguration (cluster type, Kubernetes version, pod/service subnets, cloud provider)."
+    mime_type: "application/json"
+  };
+
+  GetClusterConfigurationResponse configuration = 1;
+}
+
+// NodeList is the list of all cluster nodes.
+message NodeList {
+  option (mcp.options.v1.resource) = {
+    uri: "deckhouse://nodes"
+    name: "nodes"
+    description: "All cluster nodes with status, role, internal IP, OS image, kubelet version, age, and NodeGroup."
+    mime_type: "application/json"
+  };
+
+  repeated NodeInfo nodes = 1;
+}
+
+// ModuleList is the list of all Deckhouse modules.
+message ModuleList {
+  option (mcp.options.v1.resource) = {
+    uri: "deckhouse://modules"
+    name: "modules"
+    description: "All Deckhouse modules with enabled state, phase, and source."
+    mime_type: "application/json"
+  };
+
+  repeated ModuleInfo modules = 1;
+}
+
+// DeckhouseReleaseList is the list of all DeckhouseRelease resources.
+message DeckhouseReleaseList {
+  option (mcp.options.v1.resource) = {
+    uri: "deckhouse://releases"
+    name: "releases"
+    description: "All DeckhouseRelease resources with version, phase (Pending/Deployed/Superseded/Skipped), approval status, and transition time."
+    mime_type: "application/json"
+  };
+
+  repeated DeckhouseReleaseInfo releases = 1;
+}
+
+// ---- Templated resources (per-entity, live read; list is a startup snapshot) ----
+
+// Node is a single cluster node addressed by name.
+message Node {
+  option (mcp.options.v1.resource) = {
+    uri_template: "deckhouse://nodes/{name}"
+    name: "node"
+    description: "Detailed information about a single cluster node by name: conditions, allocatable/capacity resources, StaticInstance phase, and recent events."
+    mime_type: "application/json"
+  };
+
+  GetNodeResponse node = 1;
+}
+
+// Module is a single module's ModuleConfig addressed by name.
+message Module {
+  option (mcp.options.v1.resource) = {
+    uri_template: "deckhouse://modules/{name}"
+    name: "module"
+    description: "The ModuleConfig for a single Deckhouse module by name: enabled state, version, and settings."
+    mime_type: "application/json"
+  };
+
+  GetModuleConfigResponse config = 1;
+}

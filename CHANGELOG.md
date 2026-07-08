@@ -7,7 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased] — dual transport (stdio + SSE)
+## [0.4.0] — MCP Resources & Prompts; stdio-only runtime
+
+Adds two new MCP primitives — **Resources** and **Prompts** — alongside the
+existing 43 tools, and migrates the server runtime to the self-contained
+`protoc-gen-mcp/mcpruntime`. All 43 tools are unchanged and fully backward
+compatible.
+
+### Added
+
+- **MCP Resources** (`proto/deckhouse/v1/resources.proto`, `internal/handler/resources.go`) — read-only cluster context addressable by URI, reusing the existing tool handlers as backing logic:
+  - Static: `deckhouse://cluster/status`, `deckhouse://cluster/configuration`, `deckhouse://nodes`, `deckhouse://modules`, `deckhouse://releases`.
+  - Templated: `deckhouse://nodes/{name}`, `deckhouse://modules/{name}`.
+- **MCP Prompts** (`proto/deckhouse/v1/prompts.proto`, `internal/handler/prompts.go`) — parameterized diagnostic/operational playbooks that orchestrate tools and resources: `diagnose_cluster_health`, `triage_unhealthy_pods`, `investigate_node`, `prepare_deckhouse_upgrade`, `add_worker_node`.
+- Unit tests: `internal/handler/resources_test.go`, `internal/handler/prompts_test.go` (function-field mock `k8s.Client`, same style as the rest of the suite).
+- `deploy/README.md` documenting the stdio deployment model.
+
+### Changed
+
+- **Runtime migrated to `protoc-gen-mcp/mcpruntime`.** The generated code and server now target the plugin's self-contained `*mcpruntime.Server` (`NewServer` + `ServeStdio`) instead of `modelcontextprotocol/go-sdk`. Tool registration call sites are unchanged (`pb.Register{Service}Tools`); only the server type changed.
+- `cmd/deckhouse-harness/main.go` simplified to a single stdio path.
+- Version bumped `0.3.1` → `0.4.0`.
+
+### Removed
+
+- **SSE / HTTP transport (breaking).** `mcpruntime` ships stdio only, so the SSE mode, the `-listen`/`-transport` flags, and the `TRANSPORT`/`LISTEN_ADDR` env vars were removed. The server is stdio-only. For in-cluster HTTP fronting, wrap `Server.HandleRaw` externally.
+- **`modelcontextprotocol/go-sdk` dependency** — dropped from `go.mod`.
+- **In-cluster HTTP manifests** `deploy/deployment.yaml` and `deploy/service.yaml` — retired (they modeled the removed SSE service). `deploy/rbac.yaml` (ServiceAccount + ClusterRole/Binding) is kept for in-cluster runs.
+
+### Infrastructure
+
+- `protoc-gen-mcp` upgraded v0.5.0 → v0.6.0 (`easyp.yaml`, `go.mod`, `easyp.lock`), which adds proto-first Resources/Prompts generation via `(mcp.options.v1.resource)` / `(mcp.options.v1.prompt)` message options.
+
+---
+
+## [0.3.1] — dual transport (stdio + SSE)
 
 ### Added
 

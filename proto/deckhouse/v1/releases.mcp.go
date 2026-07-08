@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	mcpruntime "github.com/easyp-tech/protoc-gen-mcp/mcpruntime"
-	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	proto "google.golang.org/protobuf/proto"
 )
 
@@ -19,7 +18,7 @@ type ReleasesAPIToolHandler interface {
 }
 
 // RegisterReleasesAPITools registers generated MCP tools for ReleasesAPI.
-func RegisterReleasesAPITools(server *mcp.Server, impl ReleasesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
+func RegisterReleasesAPITools(server *mcpruntime.Server, impl ReleasesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
 	if impl == nil {
 		return errors.New("RegisterReleasesAPITools: impl is nil")
 	}
@@ -30,7 +29,7 @@ func RegisterReleasesAPITools(server *mcp.Server, impl ReleasesAPIToolHandler, o
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ReleasesAPI_ListDeckhouseReleases_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ReleasesAPI_ListDeckhouseReleases_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListDeckhouseReleasesRequest { return &ListDeckhouseReleasesRequest{} },
 		NewResponse:      func() *ListDeckhouseReleasesResponse { return &ListDeckhouseReleasesResponse{} },
@@ -45,7 +44,7 @@ func RegisterReleasesAPITools(server *mcp.Server, impl ReleasesAPIToolHandler, o
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ReleasesAPI_GetDeckhouseRelease_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ReleasesAPI_GetDeckhouseRelease_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetDeckhouseReleaseRequest { return &GetDeckhouseReleaseRequest{} },
 		NewResponse:      func() *GetDeckhouseReleaseResponse { return &GetDeckhouseReleaseResponse{} },
@@ -60,7 +59,7 @@ func RegisterReleasesAPITools(server *mcp.Server, impl ReleasesAPIToolHandler, o
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ReleasesAPI_ApproveRelease_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ReleasesAPI_ApproveRelease_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ApproveReleaseRequest { return &ApproveReleaseRequest{} },
 		NewResponse:      func() *ApproveReleaseResponse { return &ApproveReleaseResponse{} },

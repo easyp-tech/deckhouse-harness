@@ -173,4 +173,4 @@ var _ k8s.Client = (*mockClient)(nil)
 Always in `mock_client_test.go`.
 
 ### Polling test expectations
-Tests for `AddWorkerNode`, `WaitNodeReady`, and `DrainNode` use a real 30s clock — expected to be slow (~30s each). The full suite is 134 unit tests, total ~3 min.
+Tests for `AddWorkerNode`, `WaitNodeReady`, and `DrainNode` use a real 30s clock — expected to be slow (~30s each). The full suite is 156 unit tests, total ~3 min.

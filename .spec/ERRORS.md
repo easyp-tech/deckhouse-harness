@@ -128,7 +128,7 @@ This turns a generic "the server could not find the requested resource" into a h
 
 ## 8. Error Propagation to MCP Client
 
-The MCP Go SDK converts returned Go errors into MCP `CallToolResult` with `isError: true`. The `content` is the `.Error()` string of the returned error, which includes the full wrapped chain:
+The `mcpruntime` runtime converts returned Go errors into an MCP `CallToolResult` with `isError: true`. The `content` is the `.Error()` string of the returned error, which includes the full wrapped chain:
 
 ```
 "listing nodes: dial tcp: connection refused"

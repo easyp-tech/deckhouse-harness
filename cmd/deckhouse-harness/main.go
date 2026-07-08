@@ -1,11 +1,9 @@
 // Command deckhouse-harness runs the Deckhouse MCP server.
 //
-// It supports two transports:
-//   - stdio (default): newline-delimited JSON on stdin/stdout. Used by local
-//     MCP clients such as Claude Desktop, Cursor, etc.
-//   - SSE (HTTP): when LISTEN_ADDR is set or -listen flag is provided, serves
-//     using the MCP SSE transport (mcp.NewSSEHandler) for remote / container
-//     deployments.
+// Transport: stdio only — newline-delimited JSON-RPC on stdin/stdout. Used by
+// local MCP clients such as Claude Desktop, Cursor, Claude Code, etc. The server
+// runtime (github.com/easyp-tech/protoc-gen-mcp/mcpruntime) ships stdio only; any
+// HTTP/SSE fronting must be built externally on top of Server.HandleRaw.
 //
 // Kubernetes auth: in-cluster config (inside Pod) or ~/.kube/config / KUBECONFIG.
 package main
@@ -16,14 +14,12 @@ import (
 	"io"
 	"log"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/easyp-tech/protoc-gen-mcp/mcpruntime"
 	"github.com/urfave/cli/v3"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -34,34 +30,17 @@ import (
 )
 
 const (
-	serverImplName        = "deckhouse-harness"
-	serverImplVersion     = "0.3.1"
-	serverImplDescription = "Deckhouse Kubernetes Platform MCP server"
-
-	defaultListenAddr = ":8080"
-	shutdownTimeout   = 10 * time.Second
-	readHeaderTimeout = 5 * time.Second
+	serverImplName    = "deckhouse-harness"
+	serverImplVersion = "0.4.0"
 )
 
 func main() {
 	cmd := &cli.Command{
 		Name:    "deckhouse-harness",
 		Version: serverImplVersion,
-		Usage:   "Deckhouse Kubernetes Platform MCP server",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "listen",
-				Usage:   "Listen address for SSE HTTP transport (e.g. ':8080' or '0.0.0.0:8080'). If set, enables SSE mode.",
-				Sources: cli.EnvVars("LISTEN_ADDR"),
-			},
-			&cli.StringFlag{
-				Name:    "transport",
-				Usage:   "Transport mode: 'stdio' or 'sse'. If empty, auto-selects based on presence of listen address.",
-				Sources: cli.EnvVars("TRANSPORT", "MCP_TRANSPORT"),
-			},
-		},
-		Action: func(ctx context.Context, c *cli.Command) error {
-			return run(c)
+		Usage:   "Deckhouse Kubernetes Platform MCP server (stdio transport)",
+		Action: func(ctx context.Context, _ *cli.Command) error {
+			return run(ctx)
 		},
 	}
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
@@ -69,22 +48,7 @@ func main() {
 	}
 }
 
-func run(c *cli.Command) error {
-	// Values are already resolved by urfave/cli: CLI flag > env (Sources) > default.
-	// This replaces the previous manual flag + os.Getenv fallback logic.
-	listenAddr := c.String("listen")
-	trans := strings.ToLower(strings.TrimSpace(c.String("transport")))
-
-	useSSE := false
-	switch trans {
-	case "sse":
-		useSSE = true
-	case "stdio":
-		useSSE = false
-	default:
-		useSSE = listenAddr != ""
-	}
-
+func run(ctx context.Context) error {
 	logger := configureLogger()
 
 	cfg, err := loadKubeConfig()
@@ -97,21 +61,16 @@ func run(c *cli.Command) error {
 		return fmt.Errorf("creating k8s client: %w", err)
 	}
 
-	server, err := newServer(client, logger)
+	server, err := newServer(ctx, client)
 	if err != nil {
 		return err
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if useSSE {
-		if listenAddr == "" {
-			listenAddr = defaultListenAddr
-		}
-		return serveSSE(ctx, server, listenAddr, logger)
-	}
-	return server.Run(ctx, &mcp.StdioTransport{})
+	logger.Info("starting MCP server", "transport", "stdio", "version", serverImplVersion)
+	return mcpruntime.ServeStdio(ctx, server)
 }
 
 // loadKubeConfig resolves a Kubernetes rest.Config for authenticating with the
@@ -180,80 +139,48 @@ func configureLogger() *slog.Logger {
 	return logger
 }
 
-// newServer constructs an MCP server with all generated tool handlers
-// registered against the provided Kubernetes client.
-func newServer(client k8s.Client, logger *slog.Logger) (*mcp.Server, error) {
-	server := mcp.NewServer(&mcp.Implementation{
-		Name:    serverImplName,
-		Title:   serverImplDescription,
-		Version: serverImplVersion,
-	}, &mcp.ServerOptions{
-		Logger: logger,
-	})
+// newServer constructs an MCP server with all generated tool handlers, resources,
+// and prompts registered against the provided Kubernetes client.
+func newServer(ctx context.Context, client k8s.Client) (*mcpruntime.Server, error) {
+	server := mcpruntime.NewServer(serverImplName, serverImplVersion)
 
-	err := pb.RegisterDiagnosticsAPITools(server, handler.NewDiagnosticsHandler(client))
-	if err != nil {
+	if err := pb.RegisterDiagnosticsAPITools(server, handler.NewDiagnosticsHandler(client)); err != nil {
 		return nil, fmt.Errorf("registering diagnostics tools: %w", err)
 	}
 
-	err = pb.RegisterModulesAPITools(server, handler.NewModulesHandler(client))
-	if err != nil {
+	if err := pb.RegisterModulesAPITools(server, handler.NewModulesHandler(client)); err != nil {
 		return nil, fmt.Errorf("registering modules tools: %w", err)
 	}
 
-	err = pb.RegisterNodesAPITools(server, handler.NewNodesHandler(client))
-	if err != nil {
+	if err := pb.RegisterNodesAPITools(server, handler.NewNodesHandler(client)); err != nil {
 		return nil, fmt.Errorf("registering nodes tools: %w", err)
 	}
 
-	err = pb.RegisterReleasesAPITools(server, handler.NewReleasesHandler(client))
-	if err != nil {
+	if err := pb.RegisterReleasesAPITools(server, handler.NewReleasesHandler(client)); err != nil {
 		return nil, fmt.Errorf("registering releases tools: %w", err)
 	}
 
-	err = pb.RegisterConfigAPITools(server, handler.NewConfigHandler(client))
-	if err != nil {
+	if err := pb.RegisterConfigAPITools(server, handler.NewConfigHandler(client)); err != nil {
 		return nil, fmt.Errorf("registering config tools: %w", err)
 	}
 
-	err = pb.RegisterSourcesAPITools(server, handler.NewSourcesHandler(client))
-	if err != nil {
+	if err := pb.RegisterSourcesAPITools(server, handler.NewSourcesHandler(client)); err != nil {
 		return nil, fmt.Errorf("registering sources tools: %w", err)
 	}
 
+	// MCP resources (read-only cluster context by URI).
+	if err := pb.RegisterFile_proto_deckhouse_v1_resources_protoResources(
+		ctx, server, handler.NewResourcesHandler(client),
+	); err != nil {
+		return nil, fmt.Errorf("registering resources: %w", err)
+	}
+
+	// MCP prompts (parameterized diagnostic/operational playbooks).
+	if err := pb.RegisterFile_proto_deckhouse_v1_prompts_protoPrompts(
+		server, handler.NewPromptsHandler(),
+	); err != nil {
+		return nil, fmt.Errorf("registering prompts: %w", err)
+	}
+
 	return server, nil
-}
-
-// serveSSE runs the MCP server using the SSE transport (HTTP + Server-Sent Events).
-// It reuses a single *mcp.Server instance to handle multiple concurrent sessions.
-// The server is shut down gracefully when ctx is cancelled.
-func serveSSE(ctx context.Context, srv *mcp.Server, addr string, logger *slog.Logger) error {
-	handler := mcp.NewSSEHandler(func(*http.Request) *mcp.Server {
-		// Return the same server for all connections. The SDK's Server supports
-		// multiple concurrent ServerSessions.
-		return srv
-	}, nil)
-
-	httpSrv := &http.Server{
-		Addr:              addr,
-		Handler:           handler,
-		ReadHeaderTimeout: readHeaderTimeout,
-	}
-
-	// Trigger shutdown when the context is cancelled (e.g. SIGINT/SIGTERM).
-	go func() {
-		<-ctx.Done()
-		logger.Info("shutting down SSE server", "addr", addr)
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-		defer cancel()
-		if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-			logger.Error("http server shutdown error", "error", err)
-		}
-	}()
-
-	logger.Info("starting MCP SSE server", "addr", addr)
-	if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("listen and serve: %w", err)
-	}
-	return nil
 }

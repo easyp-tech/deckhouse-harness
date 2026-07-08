@@ -7,7 +7,7 @@ import (
 	context "context"
 	errors "errors"
 	mcpruntime "github.com/easyp-tech/protoc-gen-mcp/mcpruntime"
-	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	proto "google.golang.org/protobuf/proto"
 )
 
 // ModulesAPIToolHandler defines the business logic required by generated MCP tools.
@@ -22,7 +22,7 @@ type ModulesAPIToolHandler interface {
 }
 
 // RegisterModulesAPITools registers generated MCP tools for ModulesAPI.
-func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
+func RegisterModulesAPITools(server *mcpruntime.Server, impl ModulesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
 	if impl == nil {
 		return errors.New("RegisterModulesAPITools: impl is nil")
 	}
@@ -33,7 +33,7 @@ func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ModulesAPI_ListModuleConfigs_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ModulesAPI_ListModuleConfigs_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListModuleConfigsRequest { return &ListModuleConfigsRequest{} },
 		NewResponse:      func() *ListModuleConfigsResponse { return &ListModuleConfigsResponse{} },
@@ -48,7 +48,7 @@ func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ModulesAPI_GetModuleConfig_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ModulesAPI_GetModuleConfig_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetModuleConfigRequest { return &GetModuleConfigRequest{} },
 		NewResponse:      func() *GetModuleConfigResponse { return &GetModuleConfigResponse{} },
@@ -63,7 +63,7 @@ func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ModulesAPI_EnableModule_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ModulesAPI_EnableModule_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{IdempotentHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{IdempotentHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *EnableModuleRequest { return &EnableModuleRequest{} },
 		NewResponse:      func() *EnableModuleResponse { return &EnableModuleResponse{} },
@@ -78,7 +78,7 @@ func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ModulesAPI_DisableModule_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ModulesAPI_DisableModule_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{IdempotentHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{IdempotentHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *DisableModuleRequest { return &DisableModuleRequest{} },
 		NewResponse:      func() *DisableModuleResponse { return &DisableModuleResponse{} },
@@ -93,7 +93,7 @@ func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ModulesAPI_ListModules_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ModulesAPI_ListModules_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListModulesRequest { return &ListModulesRequest{} },
 		NewResponse:      func() *ListModulesResponse { return &ListModulesResponse{} },
@@ -108,7 +108,7 @@ func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ModulesAPI_UpdateModuleSettings_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ModulesAPI_UpdateModuleSettings_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{},
+		Annotations:      &mcpruntime.ToolAnnotations{},
 		Icons:            nil,
 		NewRequest:       func() *UpdateModuleSettingsRequest { return &UpdateModuleSettingsRequest{} },
 		NewResponse:      func() *UpdateModuleSettingsResponse { return &UpdateModuleSettingsResponse{} },
@@ -123,7 +123,7 @@ func RegisterModulesAPITools(server *mcp.Server, impl ModulesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ModulesAPI_SetModuleMaintenance_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ModulesAPI_SetModuleMaintenance_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{IdempotentHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{IdempotentHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *SetModuleMaintenanceRequest { return &SetModuleMaintenanceRequest{} },
 		NewResponse:      func() *SetModuleMaintenanceResponse { return &SetModuleMaintenanceResponse{} },

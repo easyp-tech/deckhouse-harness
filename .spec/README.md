@@ -7,7 +7,7 @@ This folder contains documentation to help LLMs and developers quickly understan
 
 ### Core
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — Layered architecture, data flow, key design decisions
-- [PACKAGES.md](./PACKAGES.md) — Reference of all Go packages (6 handler files, 36 k8s.Client methods)
+- [PACKAGES.md](./PACKAGES.md) — Reference of all Go packages (tool/resource/prompt handlers, 36 k8s.Client methods)
 - [DOMAIN.md](./DOMAIN.md) — Domain model: Deckhouse CRDs, MCP tools, K8s resources, lifecycle diagrams
 - [CODE_STYLE.md](./CODE_STYLE.md) — Go and Proto conventions specific to this project
 
@@ -16,8 +16,8 @@ This folder contains documentation to help LLMs and developers quickly understan
 - [TESTING.md](./TESTING.md) — Testing conventions, mock pattern, test structure
 
 ### API & Deployment
-- [API.md](./API.md) — MCP tool API reference: 43 tools across 6 service blocks (stdio + SSE transports, proto-first)
-- [DEPLOYMENT.md](./DEPLOYMENT.md) — Docker, Kubernetes manifests, RBAC (P0+P1), rollout
+- [API.md](./API.md) — MCP API reference: 43 tools across 6 service blocks, plus Resources and Prompts (stdio transport, proto-first)
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — stdio run model, Docker image, ServiceAccount + RBAC
 
 ### Error Handling
 - [ERRORS.md](./ERRORS.md) — Error wrapping conventions, propagation model
@@ -31,24 +31,25 @@ This folder contains documentation to help LLMs and developers quickly understan
 |--------|------------|
 | **Language** | Go 1.26 |
 | **Architecture** | Proto-first MCP server, handler pattern |
-| **API** | MCP over stdio (default) + SSE (HTTP), protobuf-defined tools |
+| **API** | MCP over stdio — protobuf-defined tools, resources, and prompts |
 | **K8s client** | client-go v0.35.3 (typed + dynamic) |
-| **Code generation** | protoc-gen-mcp v0.5.0 + easyp |
-| **Deployment** | Kubernetes Pod in `d8-system` namespace |
+| **Code generation** | protoc-gen-mcp v0.6.0 + easyp |
+| **Runtime** | `protoc-gen-mcp/mcpruntime` (stdio; no `modelcontextprotocol/go-sdk`) |
+| **Deployment** | stdio subprocess; in-cluster via ServiceAccount (no HTTP service) |
 | **Auth** | ServiceAccount + ClusterRoleBinding (RBAC) |
-| **Testing** | Standard `testing` package, function-field mocks, 134 unit tests |
-| **Tools implemented** | 43 (all P0–P3 implemented) — see [README.md](../README.md) |
+| **Testing** | Standard `testing` package, function-field mocks |
+| **MCP primitives** | 43 tools + 7 resources + 5 prompts — see [README.md](../README.md) |
 
 ## Project Structure
 
 ```
 deckhouse-harness/
-├── cmd/deckhouse-harness/    # Entry point (urfave/cli/v3) — stdio + SSE server, wires 6 handler blocks
+├── cmd/deckhouse-harness/    # Entry point (urfave/cli/v3) — stdio server, wires tools + resources + prompts
 ├── internal/
-│   ├── handler/          # MCP tool handler implementations (43 tools)
+│   ├── handler/          # Tool (43) + resource + prompt handler implementations
 │   └── k8s/              # Kubernetes client interface (36 methods) + implementation
 ├── proto/deckhouse/v1/   # .proto files (single source of truth) + generated *.pb.go, *.mcp.go
-├── deploy/               # K8s manifests: Deployment, Service, RBAC
+├── deploy/               # ServiceAccount + RBAC (no HTTP service) — see deploy/README.md
 ├── tests/integration/    # Integration test scripts (Kind cluster)
 ├── Dockerfile            # Multi-stage: golang:1.26 → distroless
 ├── Taskfile.yml          # go-task: generate, lint, build, test, docker
@@ -64,7 +65,7 @@ task generate   # easyp mod download && easyp generate
 # Build
 task build      # go build ./cmd/deckhouse-harness
 
-# Tests (134 unit tests, ~3 min due to polling tests)
+# Tests (156 unit tests, ~3 min due to polling tests)
 task test       # go test ./...
 
 # Lint (proto)
@@ -82,10 +83,9 @@ task integration    # setup → test → teardown
 
 | Port | Component | Protocol |
 |------|-----------|----------|
-| —    | MCP stdio server (default) | newline-delimited JSON on stdin/stdout |
-| 8080 | MCP SSE server (`TRANSPORT=sse`) | HTTP (SSE) |
+| —    | MCP stdio server | newline-delimited JSON-RPC on stdin/stdout |
 
-Transport defaults to stdio (for local clients like Claude Desktop / Cursor). Enable the SSE HTTP server via `TRANSPORT=sse`; override the listen address via `LISTEN_ADDR` / `-listen`.
+Transport is stdio only — a client (Claude Desktop / Cursor / Claude Code) launches the binary as a subprocess. No network port.
 
 ## Key Interfaces
 

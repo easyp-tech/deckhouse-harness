@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	mcpruntime "github.com/easyp-tech/protoc-gen-mcp/mcpruntime"
-	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	proto "google.golang.org/protobuf/proto"
 )
 
@@ -19,7 +18,7 @@ type ConfigAPIToolHandler interface {
 }
 
 // RegisterConfigAPITools registers generated MCP tools for ConfigAPI.
-func RegisterConfigAPITools(server *mcp.Server, impl ConfigAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
+func RegisterConfigAPITools(server *mcpruntime.Server, impl ConfigAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
 	if impl == nil {
 		return errors.New("RegisterConfigAPITools: impl is nil")
 	}
@@ -30,7 +29,7 @@ func RegisterConfigAPITools(server *mcp.Server, impl ConfigAPIToolHandler, opts 
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ConfigAPI_GetClusterConfiguration_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ConfigAPI_GetClusterConfiguration_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetClusterConfigurationRequest { return &GetClusterConfigurationRequest{} },
 		NewResponse:      func() *GetClusterConfigurationResponse { return &GetClusterConfigurationResponse{} },
@@ -45,7 +44,7 @@ func RegisterConfigAPITools(server *mcp.Server, impl ConfigAPIToolHandler, opts 
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ConfigAPI_GetStaticClusterConfiguration_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ConfigAPI_GetStaticClusterConfiguration_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetStaticClusterConfigurationRequest { return &GetStaticClusterConfigurationRequest{} },
 		NewResponse:      func() *GetStaticClusterConfigurationResponse { return &GetStaticClusterConfigurationResponse{} },
@@ -60,7 +59,7 @@ func RegisterConfigAPITools(server *mcp.Server, impl ConfigAPIToolHandler, opts 
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  ConfigAPI_UpdateKubernetesVersion_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: ConfigAPI_UpdateKubernetesVersion_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *UpdateKubernetesVersionRequest { return &UpdateKubernetesVersionRequest{} },
 		NewResponse:      func() *UpdateKubernetesVersionResponse { return &UpdateKubernetesVersionResponse{} },

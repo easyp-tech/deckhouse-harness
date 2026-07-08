@@ -7,7 +7,6 @@ import (
 	context "context"
 	errors "errors"
 	mcpruntime "github.com/easyp-tech/protoc-gen-mcp/mcpruntime"
-	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	proto "google.golang.org/protobuf/proto"
 )
 
@@ -22,7 +21,7 @@ type SourcesAPIToolHandler interface {
 }
 
 // RegisterSourcesAPITools registers generated MCP tools for SourcesAPI.
-func RegisterSourcesAPITools(server *mcp.Server, impl SourcesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
+func RegisterSourcesAPITools(server *mcpruntime.Server, impl SourcesAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
 	if impl == nil {
 		return errors.New("RegisterSourcesAPITools: impl is nil")
 	}
@@ -33,7 +32,7 @@ func RegisterSourcesAPITools(server *mcp.Server, impl SourcesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  SourcesAPI_ListModuleSources_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: SourcesAPI_ListModuleSources_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListModuleSourcesRequest { return &ListModuleSourcesRequest{} },
 		NewResponse:      func() *ListModuleSourcesResponse { return &ListModuleSourcesResponse{} },
@@ -48,7 +47,7 @@ func RegisterSourcesAPITools(server *mcp.Server, impl SourcesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  SourcesAPI_CreateModuleSource_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: SourcesAPI_CreateModuleSource_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{},
+		Annotations:      &mcpruntime.ToolAnnotations{},
 		Icons:            nil,
 		NewRequest:       func() *CreateModuleSourceRequest { return &CreateModuleSourceRequest{} },
 		NewResponse:      func() *CreateModuleSourceResponse { return &CreateModuleSourceResponse{} },
@@ -63,7 +62,7 @@ func RegisterSourcesAPITools(server *mcp.Server, impl SourcesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  SourcesAPI_ListModuleUpdatePolicies_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: SourcesAPI_ListModuleUpdatePolicies_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListModuleUpdatePoliciesRequest { return &ListModuleUpdatePoliciesRequest{} },
 		NewResponse:      func() *ListModuleUpdatePoliciesResponse { return &ListModuleUpdatePoliciesResponse{} },
@@ -78,7 +77,7 @@ func RegisterSourcesAPITools(server *mcp.Server, impl SourcesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  SourcesAPI_CreateModuleUpdatePolicy_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: SourcesAPI_CreateModuleUpdatePolicy_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{},
+		Annotations:      &mcpruntime.ToolAnnotations{},
 		Icons:            nil,
 		NewRequest:       func() *CreateModuleUpdatePolicyRequest { return &CreateModuleUpdatePolicyRequest{} },
 		NewResponse:      func() *CreateModuleUpdatePolicyResponse { return &CreateModuleUpdatePolicyResponse{} },
@@ -93,7 +92,7 @@ func RegisterSourcesAPITools(server *mcp.Server, impl SourcesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  SourcesAPI_ListModuleReleases_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: SourcesAPI_ListModuleReleases_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListModuleReleasesRequest { return &ListModuleReleasesRequest{} },
 		NewResponse:      func() *ListModuleReleasesResponse { return &ListModuleReleasesResponse{} },
@@ -108,7 +107,7 @@ func RegisterSourcesAPITools(server *mcp.Server, impl SourcesAPIToolHandler, opt
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  SourcesAPI_DeleteModuleSource_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: SourcesAPI_DeleteModuleSource_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{DestructiveHint: proto.Bool(true)},
+		Annotations:      &mcpruntime.ToolAnnotations{DestructiveHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *DeleteModuleSourceRequest { return &DeleteModuleSourceRequest{} },
 		NewResponse:      func() *DeleteModuleSourceResponse { return &DeleteModuleSourceResponse{} },

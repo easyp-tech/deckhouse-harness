@@ -5,16 +5,16 @@ MCP server for managing Deckhouse Kubernetes Platform (CE) via AI agents. Proto-
 
 ## 1. Overview
 
-**Application type:** Dual-transport MCP server — stdio (default, for local clients) or SSE/HTTP (deployed as a Kubernetes Pod).  
-**Pattern:** Handler pattern — generated tool interfaces + thin handler implementations over a K8s client abstraction.
+**Application type:** stdio MCP server — a client launches the binary and speaks newline-delimited JSON-RPC over stdin/stdout. Exposes Tools, Resources, and Prompts.  
+**Pattern:** Handler pattern — generated interfaces + thin handler implementations over a K8s client abstraction.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Transport Layer (stdio default / SSE HTTP)          │
-│  server.Run(StdioTransport) or mcp.NewSSEHandler     │
+│  Transport Layer (stdio)                             │
+│  mcpruntime.ServeStdio(ctx, server)                  │
 ├─────────────────────────────────────────────────────┤
-│  MCP Tool Layer (generated)                          │
-│  *.mcp.go — tool registration, JSON Schema, routing  │
+│  MCP Layer (generated) — Tools · Resources · Prompts │
+│  *.mcp.go — registration, JSON Schema, routing       │
 ├─────────────────────────────────────────────────────┤
 │  Handler Layer                                       │
 │  internal/handler/*.go — business logic              │
@@ -33,15 +33,13 @@ MCP server for managing Deckhouse Kubernetes Platform (CE) via AI agents. Proto-
 
 | File | Description |
 |------|-------------|
-| `main.go` | Entry point (`urfave/cli/v3`): K8s auth, MCP server creation, handler registration, transport selection (stdio / SSE), graceful shutdown |
+| `main.go` | Entry point (`urfave/cli/v3`): K8s auth, MCP server creation, tool/resource/prompt registration, stdio serve, graceful shutdown |
 
-- CLI wiring via `urfave/cli/v3` (flags + env var sources)
 - K8s auth: `loadKubeConfig()` tries `rest.InClusterConfig()` first, then falls back to `KUBECONFIG` / `~/.kube/config`
-- Creates `mcp.Server`; transport defaults to **stdio** (`server.Run(ctx, mcp.StdioTransport)`) for local clients (Claude Desktop, Cursor)
-- SSE (HTTP) transport enabled via `TRANSPORT=sse` — wraps the server in `mcp.NewSSEHandler` served by an `http.Server`
-- Registers all tool handlers via generated `pb.Register*Tools(server, handler)` — 6 registration calls
-- Listens on `:8080` (overridable via `LISTEN_ADDR` / `-listen`)
-- Shutdown on `SIGINT`/`SIGTERM` with 30s timeout
+- Creates `mcpruntime.NewServer(name, version)` (self-contained runtime; no `modelcontextprotocol/go-sdk`)
+- Registers the 6 tool services (`pb.Register*Tools`), the resources (`RegisterFile_..._Resources`), and the prompts (`RegisterFile_..._Prompts`)
+- Serves over stdio via `mcpruntime.ServeStdio(ctx, server)`; blocks until stdin closes or ctx is cancelled
+- Shutdown on `SIGINT`/`SIGTERM` via context cancellation
 
 ### Proto / Generated Layer — `proto/deckhouse/v1/`
 
@@ -68,8 +66,10 @@ Proto files are the **single source of truth**. Regenerate with `task generate`.
 | `nodes.go` | `NodesHandler` — 13 tools: `CreateSSHCredentials`, `DeleteSSHCredentials`, `CreateStaticInstance`, `DeleteStaticInstance`, `AddWorkerNode` (composite), `RemoveNode` (composite), `CreateNodeGroup`, `DeleteNodeGroup`, `WaitNodeReady`, `CordonNode`, `UncordonNode`, `DrainNode` (composite), `CreateNodeGroupConfiguration` |
 | `config.go` | `ConfigHandler` — 3 tools: `GetClusterConfiguration`, `GetStaticClusterConfiguration`, `UpdateKubernetesVersion` |
 | `sources.go` | `SourcesHandler` — 6 tools: `ListModuleSources`, `CreateModuleSource`, `DeleteModuleSource`, `ListModuleUpdatePolicies`, `CreateModuleUpdatePolicy`, `ListModuleReleases` |
+| `resources.go` | `ResourcesHandler` — MCP resources (5 static + 2 templated), delegates to the tool handlers |
+| `prompts.go` | `PromptsHandler` — MCP prompts (5 diagnostic playbooks) |
 | `mock_client_test.go` | `mockClient` struct — function-field test double for `k8s.Client` |
-| `*_test.go` | Unit tests (134 total; polling tests use a real 30s clock, ~3 min runtime) |
+| `*_test.go` | Unit tests (156 total; polling tests use a real 30s clock, ~3 min runtime) |
 
 Each handler struct holds a single `k8s.Client` field. Constructor: `New{Name}Handler(client k8s.Client)`.
 
@@ -91,25 +91,26 @@ deckhouse-harness/
 │   └── deckhouse-harness/
 │       └── main.go             # Entrypoint
 ├── internal/
-│   ├── handler/                # Tool handler implementations (6 handler files)
+│   ├── handler/                # Handler implementations (tools + resources + prompts)
 │   │   ├── diagnostics.go      # 11 tools
 │   │   ├── modules.go          # 7 tools
 │   │   ├── releases.go         # 3 tools
 │   │   ├── nodes.go            # 13 tools
 │   │   ├── config.go           # 3 tools
 │   │   ├── sources.go          # 6 tools
-│   │   └── *_test.go           # 134 unit tests
+│   │   ├── resources.go        # MCP resources (delegate to tool handlers)
+│   │   ├── prompts.go          # MCP prompts (diagnostic playbooks)
+│   │   └── *_test.go           # 156 unit tests
 │   └── k8s/
 │       └── client.go           # K8s abstraction (36-method interface)
 ├── proto/
 │   └── deckhouse/v1/
-│       ├── *.proto             # Source of truth (6 service files)
+│       ├── *.proto             # Source of truth (6 tool services + resources + prompts)
 │       ├── *.pb.go             # Generated: types
-│       └── *.mcp.go            # Generated: MCP bindings
+│       └── *.mcp.go            # Generated: MCP bindings (tools, resources, prompts)
 ├── deploy/
-│   ├── deployment.yaml         # K8s Deployment (d8-system)
-│   ├── rbac.yaml               # ServiceAccount + ClusterRole (P0+P1 perms)
-│   └── service.yaml            # K8s Service
+│   ├── rbac.yaml               # ServiceAccount + ClusterRole/Binding (all 43 tools)
+│   └── README.md               # stdio run model (no HTTP service)
 ├── tests/integration/          # Kind-based integration tests
 ├── Dockerfile                  # Multi-stage builder
 ├── Taskfile.yml                # Build/test tasks
@@ -134,19 +135,19 @@ deckhouse-harness/
 
 6. **Flexible K8s auth** — `loadKubeConfig()` tries `rest.InClusterConfig()` first (Pod + ServiceAccount), then falls back to `KUBECONFIG` / `~/.kube/config`. This supports both in-cluster deployment and local development against a remote cluster.
 
-7. **Dual transport, no middleware / framework** — stdio is the default (`server.Run(ctx, mcp.StdioTransport)`) for local clients; SSE (`TRANSPORT=sse`) uses the MCP SDK's `NewSSEHandler` served by a plain `http.Server`. No router, no auth middleware (in-cluster access handled by K8s RBAC at the SA level).
+7. **stdio, no middleware / framework** — the server speaks stdio only (`mcpruntime.ServeStdio`). No HTTP listener, no router, no auth middleware (in-cluster access handled by K8s RBAC at the SA level). For HTTP fronting, wrap `Server.HandleRaw` externally.
 
 8. **Idempotent write tools** — `EnableModule`, `DisableModule`, and `ApproveRelease` are safe to call repeatedly. They return previous state to indicate whether a change was made.
 
 ## 5. Data Flow
 
-Typical read tool request (`ListNodes`). The default local path is stdio (newline-delimited JSON on stdin/stdout); the SSE/HTTP path below applies when `TRANSPORT=sse`:
+Typical read tool request (`ListNodes`) over stdio (newline-delimited JSON-RPC on stdin/stdout):
 
 ```
 MCP Client (AI agent)
-  → stdio (default)  or  HTTP POST /sse  (SSE connection)
-    → server.Run(StdioTransport)  or  mcp.SSEHandler (mcp-sdk)
-      → mcp.Server.CallTool("deckhouse_ListNodes", {...})
+  → stdin JSON-RPC line
+    → mcpruntime.ServeStdio → Server.HandleRaw
+      → tools/call "deckhouse_ListNodes" {...}
         → diagnostics.mcp.go: listNodesTool.Handler(ctx, req)
           → DiagnosticsHandler.ListNodes(ctx, *ListNodesRequest)
             → k8s.Client.ListNodes(ctx)
@@ -155,7 +156,7 @@ MCP Client (AI agent)
             ← convert to *pb.ListNodesResponse
           ← ProtoJSON-encode response
         ← MCP tool result
-      ← stdout JSON line (stdio)  or  SSE event (HTTP) to client
+      ← stdout JSON-RPC line to client
 ```
 
 Write tool with polling (`AddWorkerNode`):

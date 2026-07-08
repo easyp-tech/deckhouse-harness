@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package deckhouse.v1;
+
+option go_package = "github.com/easyp-tech/deckhouse-harness/proto/deckhouse/v1;deckhousev1";
+
+import "mcp/options/v1/options.proto";
+
+// This file declares MCP Prompts — reusable, parameterized diagnostic and
+// operational playbooks. Each message annotated with (mcp.options.v1.prompt)
+// becomes a prompt; every field of the message becomes a prompt argument
+// (required unless declared `optional`). The handler fills the message from the
+// client-supplied arguments and returns the prompt messages to seed the
+// conversation. Prompts orchestrate the existing tools and resources.
+
+// DiagnoseClusterHealth walks through a full cluster-health assessment.
+message DiagnoseClusterHealth {
+  option (mcp.options.v1.prompt) = {
+    name: "diagnose_cluster_health"
+    title: "Diagnose cluster health"
+    description: "Assess overall cluster health: node readiness, NodeGroups, unhealthy pods, errored modules, and pending releases."
+  };
+
+  // focus optionally narrows the assessment (e.g. "nodes", "modules", "releases").
+  optional string focus = 1 [(mcp.options.v1.field) = {
+    description: "Optional area to focus on: nodes, modules, releases, or pods. When empty, assess everything."
+  }];
+}
+
+// TriageUnhealthyPods guides root-cause analysis of failing pods.
+message TriageUnhealthyPods {
+  option (mcp.options.v1.prompt) = {
+    name: "triage_unhealthy_pods"
+    title: "Triage unhealthy pods"
+    description: "Find unhealthy pods and drill into logs and events to determine root cause."
+  };
+
+  // namespace optionally restricts triage to a single namespace.
+  optional string namespace = 1 [(mcp.options.v1.field) = {
+    description: "Optional namespace to restrict triage to. When empty, scan all namespaces."
+  }];
+}
+
+// InvestigateNode guides a deep dive into a single node.
+message InvestigateNode {
+  option (mcp.options.v1.prompt) = {
+    name: "investigate_node"
+    title: "Investigate a node"
+    description: "Deep-dive into a single node: status, conditions, resources, recent events, and kubelet logs."
+  };
+
+  // name is the node to investigate.
+  string name = 1 [(mcp.options.v1.field) = {
+    description: "Name of the node to investigate."
+  }];
+}
+
+// PrepareDeckhouseUpgrade guides pre-upgrade readiness checks.
+message PrepareDeckhouseUpgrade {
+  option (mcp.options.v1.prompt) = {
+    name: "prepare_deckhouse_upgrade"
+    title: "Prepare for a Deckhouse upgrade"
+    description: "Review pending DeckhouseReleases, current cluster health, and module readiness before approving an upgrade."
+  };
+
+  // target_version optionally names the release being prepared for.
+  optional string target_version = 1 [(mcp.options.v1.field) = {
+    description: "Optional target Deckhouse version, e.g. 'v1.74.0'. When empty, consider the next pending release."
+  }];
+}
+
+// AddWorkerNode guides adding a worker node via a StaticInstance.
+message AddWorkerNode {
+  option (mcp.options.v1.prompt) = {
+    name: "add_worker_node"
+    title: "Add a worker node"
+    description: "Step-by-step guide to add a worker node to a NodeGroup using a StaticInstance and SSH credentials."
+  };
+
+  // node_group is the target NodeGroup the new node joins.
+  string node_group = 1 [(mcp.options.v1.field) = {
+    description: "Name of the NodeGroup the new worker node should join."
+  }];
+
+  // address optionally provides the SSH-reachable IP/hostname of the machine.
+  optional string address = 2 [(mcp.options.v1.field) = {
+    description: "Optional SSH-reachable IP address or hostname of the machine to add."
+  }];
+}

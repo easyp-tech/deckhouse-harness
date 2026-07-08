@@ -88,7 +88,7 @@ task test
 go test ./...
 ```
 
-Runs all 134 unit tests. Total time ~3 min due to polling tests `AddWorkerNode`, `WaitNodeReady`, and `DrainNode`, which use a real 30s clock (each ~30s).
+Runs all 156 unit tests. Total time ~3 min due to polling tests `AddWorkerNode`, `WaitNodeReady`, and `DrainNode`, which use a real 30s clock (each ~30s).
 
 To run a specific test:
 ```bash

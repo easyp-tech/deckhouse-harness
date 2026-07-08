@@ -3,15 +3,12 @@
 
 ## 1. Overview
 
-**Protocol:** Model Context Protocol (MCP). Tool definitions are generated from protobuf via `protoc-gen-mcp` (v0.5.0); all tools use ProtoJSON encoding (field names are camelCase in JSON).
-**Transport (dual):**
-- **stdio** (default) — newline-delimited JSON-RPC on stdin/stdout. Used by local MCP clients (Claude Desktop, Cursor, `mcp` CLI). Logs go to stderr.
-- **SSE (HTTP)** — enabled via `TRANSPORT=sse`, `LISTEN_ADDR`, or `-listen :8080`. Uses `mcp.NewSSEHandler` + `http.Server`; multiple clients may connect concurrently.
+**Protocol:** Model Context Protocol (MCP). Tools, resources, and prompts are generated from protobuf via `protoc-gen-mcp` (v0.6.0); all payloads use ProtoJSON encoding (field names are camelCase in JSON).
+**Transport:** **stdio** — newline-delimited JSON-RPC on stdin/stdout, served by `mcpruntime.ServeStdio`. A client launches the binary as a subprocess (Claude Desktop, Cursor, Claude Code). Logs go to stderr. No HTTP/SSE listener.
 
-**Auth:** None at the MCP level — Kubernetes RBAC enforces access at the Pod/ServiceAccount level (SSE in-cluster) or via the local `KUBECONFIG` identity (stdio).
-**Base URL (SSE mode):** `http://<service>:8080` (in-cluster: `deckhouse-harness.d8-system.svc.cluster.local:8080`)
+**Auth:** None at the MCP level — Kubernetes RBAC enforces access via the Pod/ServiceAccount identity (in-cluster) or the local `KUBECONFIG` identity.
 
-**Tool count:** **43 tools across 6 services** — Diagnostics 11, Modules 7, Releases 3, Nodes 13, Config 3, Sources 6.
+**Primitives:** **43 tools** across 6 services — Diagnostics 11, Modules 7, Releases 3, Nodes 13, Config 3, Sources 6 — plus **Resources** (`resources.proto`) and **Prompts** (`prompts.proto`).
 
 ## 2. Tool Naming
 
@@ -832,33 +829,33 @@ The last form is emitted by `ListNodeGroups` / `ListStaticInstances` when the co
 
 ## 6. Transport Details
 
-**stdio (default):** newline-delimited JSON-RPC over stdin/stdout. `stdout` is reserved for the MCP protocol — logs go to `stderr`. This is the mode local clients (Claude Desktop, Cursor) launch.
-
-**SSE (HTTP):** the client opens an SSE connection; the server multiplexes MCP messages over the stream via `mcp.NewSSEHandler`. A single `*mcp.Server` serves multiple concurrent sessions.
+**stdio:** newline-delimited JSON-RPC over stdin/stdout via `mcpruntime.ServeStdio`. `stdout` is reserved for the MCP protocol — logs go to `stderr`. A client launches the binary as a subprocess (Claude Desktop, Cursor, Claude Code). There is no HTTP/SSE listener; for HTTP fronting, wrap `Server.HandleRaw` externally.
 
 **Polling tools** (`AddWorkerNode`, `WaitNodeReady`, `DrainNode`) block for up to their timeout (default 15 min / 5 min) while polling Kubernetes. Clients must not time out the connection prematurely — polling handlers use a real 30s interval.
 
-**Server timeouts (SSE):** `ReadHeaderTimeout: 5s`; graceful shutdown with a 10s timeout on `SIGINT`/`SIGTERM`. No per-request timeout — callers use context cancellation.
+**Shutdown:** graceful on `SIGINT`/`SIGTERM` via context cancellation. No per-request timeout — callers use context cancellation.
 
 ## 7. Proto / Schema
 
 **`.proto` file locations:** `proto/deckhouse/v1/`
 
-| File | Service | RPCs |
-|------|---------|------|
-| `diagnostics.proto` | `DiagnosticsAPI` | 11 |
-| `modules.proto` | `ModulesAPI` | 7 |
-| `releases.proto` | `ReleasesAPI` | 3 |
-| `nodes.proto` | `NodesAPI` | 13 |
-| `config.proto` | `ConfigAPI` | 3 |
-| `sources.proto` | `SourcesAPI` | 6 |
+| File | Primitive | Count |
+|------|-----------|-------|
+| `diagnostics.proto` | `DiagnosticsAPI` tools | 11 |
+| `modules.proto` | `ModulesAPI` tools | 7 |
+| `releases.proto` | `ReleasesAPI` tools | 3 |
+| `nodes.proto` | `NodesAPI` tools | 13 |
+| `config.proto` | `ConfigAPI` tools | 3 |
+| `sources.proto` | `SourcesAPI` tools | 6 |
+| `resources.proto` | resources | 5 static + 2 templated |
+| `prompts.proto` | prompts | 5 |
 
 **Code generation command:**
 ```bash
 task generate  # easyp mod download && easyp generate
 ```
 
-**Tool registration (in `cmd/deckhouse-harness/main.go`, generated `Register*Tools`):**
+**Registration (in `cmd/deckhouse-harness/main.go`):**
 ```go
 pb.RegisterDiagnosticsAPITools(server, diagnosticsHandler)
 pb.RegisterModulesAPITools(server, modulesHandler)
@@ -866,4 +863,33 @@ pb.RegisterReleasesAPITools(server, releasesHandler)
 pb.RegisterNodesAPITools(server, nodesHandler)
 pb.RegisterConfigAPITools(server, configHandler)
 pb.RegisterSourcesAPITools(server, sourcesHandler)
+pb.RegisterFile_proto_deckhouse_v1_resources_protoResources(ctx, server, resourcesHandler)
+pb.RegisterFile_proto_deckhouse_v1_prompts_protoPrompts(server, promptsHandler)
 ```
+
+### Resources
+
+Read-only cluster context addressable by URI (ProtoJSON body). Reuse the tool
+handlers; templated `List` is a startup snapshot, reads are live.
+
+| URI | Kind | Backed by |
+|-----|------|-----------|
+| `deckhouse://cluster/status` | static | `GetClusterStatus` |
+| `deckhouse://cluster/configuration` | static | `GetClusterConfiguration` |
+| `deckhouse://nodes` | static | `ListNodes` |
+| `deckhouse://modules` | static | `ListModules` |
+| `deckhouse://releases` | static | `ListDeckhouseReleases` |
+| `deckhouse://nodes/{name}` | template | `GetNode` |
+| `deckhouse://modules/{name}` | template | `GetModuleConfig` |
+
+### Prompts
+
+Parameterized playbooks; each returns a user message orchestrating tools/resources.
+
+| Name | Arguments |
+|------|-----------|
+| `diagnose_cluster_health` | `focus?` |
+| `triage_unhealthy_pods` | `namespace?` |
+| `investigate_node` | `name` |
+| `prepare_deckhouse_upgrade` | `targetVersion?` |
+| `add_worker_node` | `nodeGroup`, `address?` |

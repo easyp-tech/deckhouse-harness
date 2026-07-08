@@ -5,18 +5,18 @@
 
 ### `cmd/deckhouse-harness`
 
-**Entry point and wiring.** Creates all dependencies and starts the server in one of two transport modes.
+**Entry point and wiring.** Creates all dependencies and serves MCP over stdio.
 
 | File | Description |
 |------|-------------|
-| `main.go` | K8s config (in-cluster or kubeconfig), MCP server, handler registration, dual transport (stdio default for local, SSE HTTP for in-cluster), graceful shutdown |
+| `main.go` | K8s config (in-cluster or kubeconfig), `mcpruntime` server, tool/resource/prompt registration, stdio serve, graceful shutdown |
 
 Key calls:
 - `k8s.New(cfg)` — builds the K8s client
+- `mcpruntime.NewServer(name, version)` — self-contained MCP server (no `modelcontextprotocol/go-sdk`)
 - `pb.Register*Tools(server, handler)` — registers MCP tools (6 calls: Diagnostics, Modules, Releases, Nodes, Config, Sources)
-- stdio transport (default) — MCP over stdin/stdout for local use
-- `mcp.NewSSEHandler(...)` — wraps MCP server for HTTP/SSE transport (in-cluster)
-- `httpServer.Shutdown(ctx)` — 30s graceful shutdown
+- `pb.RegisterFile_..._Resources(ctx, server, handler)` / `pb.RegisterFile_..._Prompts(server, handler)` — registers resources and prompts
+- `mcpruntime.ServeStdio(ctx, server)` — MCP over stdin/stdout; blocks until stdin closes or ctx is cancelled
 
 ---
 
@@ -24,7 +24,7 @@ Key calls:
 
 ### `internal/handler`
 
-**MCP tool handler implementations.** Each file implements a generated `*APIToolHandler` interface.
+**MCP handler implementations.** Tool handlers implement a generated `*APIToolHandler` interface; the resource and prompt handlers implement the generated resource/prompt interfaces.
 
 | File | Description |
 |------|-------------|
@@ -34,20 +34,14 @@ Key calls:
 | `nodes.go` | `NodesHandler` (13) — `CreateSSHCredentials`, `DeleteSSHCredentials`, `CreateStaticInstance`, `DeleteStaticInstance`, `AddWorkerNode` (composite, polls), `RemoveNode` (composite: cordon+drain+delete), `CreateNodeGroup`, `DeleteNodeGroup`, `WaitNodeReady` (polling), `CordonNode`, `UncordonNode`, `DrainNode` (composite), `CreateNodeGroupConfiguration` |
 | `config.go` | `ConfigHandler` (3) — `GetClusterConfiguration`, `GetStaticClusterConfiguration`, `UpdateKubernetesVersion` |
 | `sources.go` | `SourcesHandler` (6) — `ListModuleSources`, `CreateModuleSource`, `DeleteModuleSource`, `ListModuleUpdatePolicies`, `CreateModuleUpdatePolicy`, `ListModuleReleases` |
+| `resources.go` | `ResourcesHandler` — MCP resources (5 static + 2 templated); delegates to the tool handlers above |
+| `prompts.go` | `PromptsHandler` — MCP prompts (5 playbooks); returns user `TextContent` messages |
 | `mock_client_test.go` | `mockClient` — function-field test double for `k8s.Client` (36 function fields) |
-| `diagnostics_test.go` | Unit tests for `DiagnosticsHandler` |
-| `modules_test.go` | Unit tests for `ModulesHandler` |
-| `releases_test.go` | Unit tests for `ReleasesHandler` |
-| `nodes_test.go` | Unit tests for `NodesHandler` |
-| `config_test.go` | Unit tests for `ConfigHandler` |
-| `sources_test.go` | Unit tests for `SourcesHandler` |
-| `errors_test.go` | Unit tests for error cases |
-
-**Total: 134 unit tests** across test files.
+| `*_test.go` | Per-handler unit tests: `diagnostics_test.go`, `modules_test.go`, `releases_test.go`, `nodes_test.go`, `config_test.go`, `sources_test.go`, `resources_test.go`, `prompts_test.go`, `errors_test.go` |
 
 Key patterns:
-- Implements generated interface (e.g., `pb.DiagnosticsAPIToolHandler`)
-- All K8s calls through `k8s.Client` field
+- Implements the generated interface (e.g., `pb.DiagnosticsAPIToolHandler`, or the resource/prompt handler interfaces)
+- All K8s calls through `k8s.Client` field; resources/prompts reuse the tool handlers (no duplicated logic)
 - Helpers for unstructured fields: `unstructuredNestedString`, `unstructuredNestedInt64`, etc.
 - `pollInterval = 30s`, `defaultTimeoutSeconds = 900`
 
@@ -163,9 +157,8 @@ Regenerate everything: `task generate` (runs `easyp mod download && easyp genera
 
 | File | Description |
 |------|-------------|
-| `deployment.yaml` | K8s Deployment — 1 replica, `d8-system` namespace, resource limits |
 | `rbac.yaml` | ServiceAccount + ClusterRole + ClusterRoleBinding (all P0–P3 permissions) |
-| `service.yaml` | K8s Service (ClusterIP, port 8080) |
+| `README.md` | stdio deployment model (no HTTP Deployment/Service) |
 
 ### `tests/integration/`
 

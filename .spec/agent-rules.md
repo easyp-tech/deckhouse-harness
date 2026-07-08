@@ -36,7 +36,7 @@ Mandatory rules for AI agents working on this project.
 - Table-driven tests via `map[string]struct{ ... }` or named `[]struct` slices
 - Polling tests (`AddWorkerNode`, `WaitNodeReady`, `DrainNode`) use a real 30s clock — expected to be slow (~30s each)
 - Always add `var _ k8s.Client = (*mockClient)(nil)` compile-time check when adding methods to mock
-- Total: 134 unit tests, ~3 min runtime
+- Total: 156 unit tests, ~3 min runtime
 
 ## Dependencies
 
@@ -71,6 +71,8 @@ Mandatory rules for AI agents working on this project.
 
 ## Handler Registration
 
-- Handlers are auto-registered via generated `pb.Register{Service}Tools()` — 6 calls in `main.go`
-- Do NOT manually register tools — always go through the generated registration function
-- Currently registered: `DiagnosticsAPI`, `ModulesAPI`, `ReleasesAPI`, `NodesAPI`, `ConfigAPI`, `SourcesAPI` (43 tools across 6 services)
+- Tools are registered via generated `pb.Register{Service}Tools()` — 6 calls in `main.go`
+- Resources via `pb.RegisterFile_..._Resources(ctx, server, impl)`; prompts via `pb.RegisterFile_..._Prompts(server, impl)`
+- Do NOT manually register anything — always go through the generated registration functions
+- Currently registered: `DiagnosticsAPI`, `ModulesAPI`, `ReleasesAPI`, `NodesAPI`, `ConfigAPI`, `SourcesAPI` (43 tools across 6 services), plus MCP resources (`resources.proto`) and prompts (`prompts.proto`)
+- The server is `*mcpruntime.Server` (`protoc-gen-mcp/mcpruntime`), served over stdio via `mcpruntime.ServeStdio`

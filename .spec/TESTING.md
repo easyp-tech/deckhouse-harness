@@ -21,10 +21,18 @@ Each handler has a dedicated test file:
 | `nodes_test.go` | 42 tests for `NodesHandler` |
 | `config_test.go` | 9 tests for `ConfigHandler` |
 | `sources_test.go` | 17 tests for `SourcesHandler` |
+| `resources_test.go` | 11 tests for `ResourcesHandler` (reads + templated list/read, graceful degradation) |
+| `prompts_test.go` | 7 tests for `PromptsHandler` (argument interpolation, message shape) |
+| `bugfixes_test.go` | 4 regression tests for fixed handler bugs |
 | `errors_test.go` | 3 tests for K8s error propagation |
 | `mock_client_test.go` | `mockClient` definition (shared across all test files) |
 
-**Total: 134 unit tests.**
+**Total: 156 unit tests.**
+
+Resource tests assert the ProtoJSON body of `Read*`/`List*` and the graceful
+degradation of the startup enumeration (`List*` returns no instances on error).
+Prompt tests assert the returned user `TextContent` and argument interpolation —
+no cluster access needed, since prompts are pure templates.
 
 ## 3. Mock Client
 
@@ -142,7 +150,7 @@ func makeRelease(name, version, phase string) unstructured.Unstructured { ... }
 
 ```go
 // Each polling test takes ~30s (one poll cycle)
-// Full suite runtime (134 tests): ~3 minutes, dominated by polling scenarios
+// Full suite runtime (156 tests): ~3 minutes, dominated by polling scenarios
 ```
 
 Do not use `time.AfterFunc` or fake clocks — the current design trades test speed for simplicity.

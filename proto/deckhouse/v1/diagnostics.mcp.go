@@ -7,7 +7,7 @@ import (
 	context "context"
 	errors "errors"
 	mcpruntime "github.com/easyp-tech/protoc-gen-mcp/mcpruntime"
-	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	proto "google.golang.org/protobuf/proto"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -27,7 +27,7 @@ type DiagnosticsAPIToolHandler interface {
 }
 
 // RegisterDiagnosticsAPITools registers generated MCP tools for DiagnosticsAPI.
-func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
+func RegisterDiagnosticsAPITools(server *mcpruntime.Server, impl DiagnosticsAPIToolHandler, opts ...mcpruntime.RegisterOption) error {
 	if impl == nil {
 		return errors.New("RegisterDiagnosticsAPITools: impl is nil")
 	}
@@ -38,7 +38,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_GetClusterStatus_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_GetClusterStatus_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *emptypb.Empty { return &emptypb.Empty{} },
 		NewResponse:      func() *GetClusterStatusResponse { return &GetClusterStatusResponse{} },
@@ -53,7 +53,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_ListNodes_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_ListNodes_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListNodesRequest { return &ListNodesRequest{} },
 		NewResponse:      func() *ListNodesResponse { return &ListNodesResponse{} },
@@ -68,7 +68,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_ListNodeGroups_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_ListNodeGroups_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *emptypb.Empty { return &emptypb.Empty{} },
 		NewResponse:      func() *ListNodeGroupsResponse { return &ListNodeGroupsResponse{} },
@@ -83,7 +83,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_ListStaticInstances_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_ListStaticInstances_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListStaticInstancesRequest { return &ListStaticInstancesRequest{} },
 		NewResponse:      func() *ListStaticInstancesResponse { return &ListStaticInstancesResponse{} },
@@ -98,7 +98,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_ListUnhealthyPods_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_ListUnhealthyPods_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *ListUnhealthyPodsRequest { return &ListUnhealthyPodsRequest{} },
 		NewResponse:      func() *ListUnhealthyPodsResponse { return &ListUnhealthyPodsResponse{} },
@@ -113,7 +113,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_GetNode_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_GetNode_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetNodeRequest { return &GetNodeRequest{} },
 		NewResponse:      func() *GetNodeResponse { return &GetNodeResponse{} },
@@ -128,7 +128,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_GetNodeGroup_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_GetNodeGroup_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetNodeGroupRequest { return &GetNodeGroupRequest{} },
 		NewResponse:      func() *GetNodeGroupResponse { return &GetNodeGroupResponse{} },
@@ -143,7 +143,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_GetDeckhouseLogs_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_GetDeckhouseLogs_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetDeckhouseLogsRequest { return &GetDeckhouseLogsRequest{} },
 		NewResponse:      func() *GetDeckhouseLogsResponse { return &GetDeckhouseLogsResponse{} },
@@ -158,7 +158,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_GetNodeEvents_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_GetNodeEvents_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetNodeEventsRequest { return &GetNodeEventsRequest{} },
 		NewResponse:      func() *GetNodeEventsResponse { return &GetNodeEventsResponse{} },
@@ -173,7 +173,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_GetStaticInstance_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_GetStaticInstance_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetStaticInstanceRequest { return &GetStaticInstanceRequest{} },
 		NewResponse:      func() *GetStaticInstanceResponse { return &GetStaticInstanceResponse{} },
@@ -188,7 +188,7 @@ func RegisterDiagnosticsAPITools(server *mcp.Server, impl DiagnosticsAPIToolHand
 		Namespace:        "deckhouse",
 		InputSchemaJSON:  DiagnosticsAPI_GetPodLogs_ToolSpecInputSchemaJSON,
 		OutputSchemaJSON: DiagnosticsAPI_GetPodLogs_ToolSpecOutputSchemaJSON,
-		Annotations:      &mcp.ToolAnnotations{ReadOnlyHint: true},
+		Annotations:      &mcpruntime.ToolAnnotations{ReadOnlyHint: proto.Bool(true)},
 		Icons:            nil,
 		NewRequest:       func() *GetPodLogsRequest { return &GetPodLogsRequest{} },
 		NewResponse:      func() *GetPodLogsResponse { return &GetPodLogsResponse{} },
