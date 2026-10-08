@@ -201,25 +201,26 @@ Four agent skills are installed in the project. Each is auto-invoked by keyword 
 
 ### protobuf-expert-skill
 
-Protocol Buffers expert with deep EasyP CLI knowledge.
+Protocol Buffers expert with deep EasyP CLI v1 knowledge, including migration from EasyP v0.
 
-- **When**: writing/reviewing `.proto` files, configuring `easyp.yaml`, choosing lint rules, setting up codegen plugins, managing proto deps, detecting breaking changes, debugging easyp errors, protobuf style guide
+- **When**: writing/reviewing `.proto` files, configuring `easyp.yaml` / `easyp.gen.yaml` / `protobuf.mod`, choosing lint rules, setting up codegen plugins, managing proto deps, detecting breaking changes, debugging easyp errors, migrating EasyP v0 → v1 (`easyp migrate`), protobuf style guide
 - **SKILL.md**: `.agents/skills/protobuf-expert-skill/SKILL.md`
 - **References** (`.agents/skills/protobuf-expert-skill/references/`):
 
 | File | Topic |
 |------|-------|
-| `cli-commands.md` | All `easyp` CLI commands and flags |
-| `config-reference.md` | Full `easyp.yaml` schema |
-| `lint-rules.md` | 42+ lint rules with descriptions |
-| `breaking-checks.md` | Breaking change detection rules |
-| `installation.md` | Install methods (brew, go install, binary) |
+| `migration-v0-to-v1.md` | EasyP v0 → v1 migration procedure around `easyp migrate` |
+| `cli-commands.md` | All `easyp` v1 CLI commands and flags |
+| `config-reference.md` | `protobuf.mod`, `protobuf.lock`, `easyp.yaml`, `easyp.gen.yaml` |
+| `lint-rules.md` | Lint presets, groups, 41 rules, suppression |
+| `breaking-checks.md` | Breaking profiles FILE / PACKAGE / WIRE_JSON / WIRE |
+| `installation.md` | Install v1 nightly / v0 (go install, archive, Docker) |
 | `migration-from-buf.md` | Migrate from `buf.build` to EasyP |
 | `ci-cd-integration.md` | CI/CD setup (GitHub Actions, GitLab) |
 | `protobuf-best-practices.md` | Proto API design best practices |
 | `troubleshooting.md` | Common errors and fixes |
 
-- **Assets** (`.agents/skills/protobuf-expert-skill/assets/`): starter `easyp.yaml` configs — `easyp-minimal.yaml`, `easyp-strict.yaml`, `easyp-go-grpc.yaml`
+- **Assets** (`.agents/skills/protobuf-expert-skill/assets/`): v1 starters — policies `easyp-minimal.yaml`, `easyp-go-grpc.yaml`, `easyp-strict.yaml`; generation `easyp.gen-go-grpc.yaml`, `easyp.gen-remote.yaml`; manifest `protobuf-example.mod`
 
 ### protoc-gen-mcp-skill
 
@@ -234,6 +235,8 @@ Build MCP servers from protobuf definitions using `protoc-gen-mcp` and EasyP.
 |------|-------|
 | `options-reference.md` | All MCP proto annotation options (`mcp.options.v1.*`) |
 | `schema-mapping.md` | Proto type → JSON Schema mapping rules |
+
+- **Examples** (`.agents/skills/protoc-gen-mcp-skill/examples/`): per-language EasyP v1 configs and handlers (Go, Python, Java, Kotlin, TypeScript, JavaScript)
 
 ### spec-driven-dev
 
